@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-zemin text-[#1b2333] antialiased;
+  }
+}
+
+@layer components {
+  .kart {
+    @apply rounded-kart border border-cizgi bg-white;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-birincil {
+    @apply btn bg-brand text-white hover:bg-[#2249c2];
+  }
+  .btn-ikincil {
+    @apply btn border border-cizgi bg-white text-brand-dark hover:bg-zemin;
+  }
+  .btn-tehlike {
+    @apply btn border border-red-200 bg-white text-red-700 hover:bg-red-50;
+  }
+  .btn-kucuk {
+    @apply px-2.5 py-1 text-xs;
+  }
+  .girdi {
+    @apply w-full rounded-lg border border-cizgi bg-white px-3 py-2 text-sm outline-none transition placeholder:text-slate-400 focus:border-brand focus:ring-2 focus:ring-brand/15;
+  }
+  .girdi-sayi {
+    @apply girdi text-right font-mono tabular-nums;
+  }
+  .etiket {
+    @apply mb-1 block text-xs font-medium text-slate-600;
+  }
+  .rozet {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
+  }
+  .rakam {
+    @apply font-mono tabular-nums;
+  }
+}
