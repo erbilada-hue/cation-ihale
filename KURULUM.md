@@ -25,7 +25,13 @@ Sistemi çalıştırmak için iki ücretsiz hesap gerekir: **Supabase** (veritab
 3. **Environment Variables** bölümüne şu ikisini ekleyin:
    - `NEXT_PUBLIC_SUPABASE_URL` → Supabase'deki Project URL
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` → Supabase'deki anon public anahtarı
+
+   Her ikisinde de **Type** olarak **Config** seçin, **Secret** seçmeyin. Bu iki değer gizli değildir;
+   Secret seçilirse Vercel değeri siteye vermez ve site açılmaz. Secret olarak kaydedildiyse tür sonradan
+   değiştirilemez: değişkeni silip Config olarak yeniden ekleyin.
 4. **Deploy**'a basın. Birkaç dakika sonra size bir site adresi verilir.
+5. Değişkenleri sonradan değiştirirseniz **Deployments** sekmesinde en üstteki yayının **⋯** menüsünden
+   **Redeploy** ile siteyi yeniden yayınlayın; değişiklik ancak o zaman geçerli olur.
 
 ## 3. İlk kullanım
 
