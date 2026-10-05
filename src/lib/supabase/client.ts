@@ -1,8 +1,7 @@
 import { createBrowserClient } from "@supabase/ssr";
+import { supabaseAyarlari } from "./env";
 
 export function tarayiciIstemcisi() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
+  const { url, anahtar } = supabaseAyarlari();
+  return createBrowserClient(url, anahtar);
 }
