@@ -30,4 +30,4 @@ export function asamaAdi(kod: string): string {
   return ASAMALAR.find((a) => a.kod === kod)?.ad ?? kod;
 }
 
-export const BIRIMLER = ["metre", "adet", "kg", "gram", "takım", "set", "dakika"] as const;
+export const BIRIMLER = ["m", "adet", "set", "kg", "gram", "takım", "dakika"] as const;

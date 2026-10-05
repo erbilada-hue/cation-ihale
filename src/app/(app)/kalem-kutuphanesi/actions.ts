@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
 import { URUN_GRUPLARI } from "@/lib/sabitler";
-import type { SablonSatiri } from "@/lib/kalemExcel";
+import { sadelestir, type SablonSatiri } from "@/lib/kalemExcel";
 import type { Sonuc } from "../ihaleler/actions";
 
 function dogrula(s: SablonSatiri): string | null {
@@ -57,7 +57,7 @@ export async function sablonSil(id: string): Promise<Sonuc> {
 export async function sablonlariIceAktar(
   satirlar: SablonSatiri[],
   mod: "ekle" | "degistir",
-): Promise<Sonuc<{ eklenen: number }>> {
+): Promise<Sonuc<{ eklenen: number; atlanan: number }>> {
   if (satirlar.length === 0) return { hata: "Aktarılacak kalem yok." };
   for (const [i, s] of satirlar.entries()) {
     const hata = dogrula(s);
@@ -70,10 +70,45 @@ export async function sablonlariIceAktar(
     if (error) return { hata: "Eski kütüphane silinemedi: " + error.message };
   }
 
-  const kayitlar = satirlar.map((s, i) => ({ ...temizle(s), sira: i }));
-  const { error } = await supabase.from("kalem_sablonlari").insert(kayitlar);
-  if (error) return { hata: "Kalemler aktarılamadı: " + error.message };
+  // Aynı ürün grubunda aynı adlı kalem ikinci kez eklenmez
+  const anahtar = (grup: string, ad: string) => `${grup}|${sadelestir(ad)}`;
+  const mevcut = new Set<string>();
+  if (mod === "ekle") {
+    const { data } = await supabase.from("kalem_sablonlari").select("urun_grubu, ad");
+    (data ?? []).forEach((k) => mevcut.add(anahtar(k.urun_grubu, k.ad)));
+  }
+  const kayitlar = [];
+  for (const [i, s] of satirlar.entries()) {
+    const k = anahtar(s.urun_grubu, s.ad);
+    if (mevcut.has(k)) continue;
+    mevcut.add(k);
+    kayitlar.push({ ...temizle(s), sira: i });
+  }
+
+  const excelden = kayitlar.length;
+
+  // Nakliye payı her ürün grubunda opsiyonel kalem olarak bulunmalı
+  for (const g of URUN_GRUPLARI) {
+    const nakliyeVar = Array.from(mevcut).some((k) => k.startsWith(`${g.kod}|`) && k.includes("nakliye"));
+    if (!nakliyeVar) {
+      kayitlar.push({
+        urun_grubu: g.kod,
+        ad: "Nakliye payı",
+        zorunlu: false,
+        birim: "adet",
+        varsayilan_kullanim: 1,
+        varsayilan_birim_fiyat: null,
+        anahtar_kelimeler: ["nakliye", "teslim", "sevkiyat", "kargo"],
+        sira: 999,
+      });
+    }
+  }
+
+  if (kayitlar.length > 0) {
+    const { error } = await supabase.from("kalem_sablonlari").insert(kayitlar);
+    if (error) return { hata: "Kalemler aktarılamadı: " + error.message };
+  }
 
   revalidatePath("/kalem-kutuphanesi");
-  return { veri: { eklenen: kayitlar.length } };
+  return { veri: { eklenen: kayitlar.length, atlanan: satirlar.length - excelden } };
 }

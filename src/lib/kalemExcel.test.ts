@@ -55,6 +55,42 @@ describe("sayfalariCoz", () => {
     expect(satirlar[0].zorunlu).toBe(true);
   });
 
+  it("CATION dosya düzenini okur: her ürün grubu ayrı sayfa, kılavuz sayfası atlanır", () => {
+    const { satirlar, hatalar } = sayfalariCoz([
+      { ad: "Kullanim Kilavuzu", satirlar: [["CATION TEKSTİL — KALEM ŞABLON KÜTÜPHANESİ"], ["Kalem", ""]] },
+      {
+        ad: "MONT-KABAN",
+        satirlar: [
+          ["Kalem Adı", "Kategori", "Zorunlu/Opsiyonel", "Varsayılan Birim", "Tipik Kullanım", "Şartname Anahtar Kelimeleri", "Notlar"],
+          ["Dış kumaş", "Kumaş", "ZORUNLU", "m", 2.2, "softshell, oxford", "Gramaj şartnameden"],
+          ["Kapitone astar", "Kumaş", "OPSİYONEL", "m", 2, "kapitone", ""],
+        ],
+      },
+      { ad: "Segment Sablonlari", satirlar: [["Segment", "Kumaş Tipi"], ["PREMIUM", "Combed"]] },
+    ]);
+    expect(hatalar).toEqual([]);
+    expect(satirlar).toEqual([
+      {
+        urun_grubu: "mont_kaban",
+        ad: "Dış kumaş",
+        zorunlu: true,
+        birim: "m",
+        varsayilan_kullanim: 2.2,
+        varsayilan_birim_fiyat: null,
+        anahtar_kelimeler: ["softshell", "oxford"],
+      },
+      {
+        urun_grubu: "mont_kaban",
+        ad: "Kapitone astar",
+        zorunlu: false,
+        birim: "m",
+        varsayilan_kullanim: 2,
+        varsayilan_birim_fiyat: null,
+        anahtar_kelimeler: ["kapitone"],
+      },
+    ]);
+  });
+
   it("tanınmayan satırları hata olarak bildirir", () => {
     const { satirlar, hatalar } = sayfalariCoz([
       { ad: "Liste", satirlar: [["Ürün Grubu", "Kalem Adı", "Tip"], ["Ayakkabı", "Taban", "Zorunlu"], ["Gömlek", "Düğme", "belki"]] },

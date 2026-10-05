@@ -242,7 +242,12 @@ function ExcelAktarimi({ toplam }: { toplam: number }) {
     const s = await sablonlariIceAktar(cozum.satirlar, mod);
     setAktariliyor(false);
     if (s.hata !== undefined) return setMesaj({ tur: "hata", metin: s.hata });
-    setMesaj({ tur: "basari", metin: `${s.veri.eklenen} kalem kütüphaneye aktarıldı.` });
+    setMesaj({
+      tur: "basari",
+      metin:
+        `${s.veri.eklenen} kalem kütüphaneye aktarıldı.` +
+        (s.veri.atlanan > 0 ? ` Kütüphanede zaten olan ${s.veri.atlanan} kalem tekrar eklenmedi.` : ""),
+    });
     setCozum(null);
     setDosyaAdi("");
     if (dosyaGirdisi.current) dosyaGirdisi.current.value = "";
@@ -252,8 +257,8 @@ function ExcelAktarimi({ toplam }: { toplam: number }) {
   function ornekIndir() {
     const ornek: (string | number)[][] = [
       [...EXCEL_BASLIKLARI],
-      ["Mont-Kaban", "Ana kumaş", "Zorunlu", "metre", 1.8, "", ""],
-      ["Mont-Kaban", "Reflektör şerit", "Opsiyonel", "metre", 1.2, "", "reflektör, EN ISO 20471"],
+      ["Mont-Kaban", "Ana kumaş", "Zorunlu", "m", 1.8, "", ""],
+      ["Mont-Kaban", "Reflektör şerit", "Opsiyonel", "m", 1.2, "", "reflektör, EN ISO 20471"],
       ["Tişört-Polo", "Nakış", "Opsiyonel", "adet", 1, "", "nakış, logo"],
     ];
     const kitap = XLSX.utils.book_new();
@@ -275,7 +280,7 @@ function ExcelAktarimi({ toplam }: { toplam: number }) {
         <div>
           <h2 className="font-semibold text-brand-dark">Excel&apos;den yükle</h2>
           <p className="text-sm text-slate-500">
-            Sütunlar: {EXCEL_BASLIKLARI.join(", ")}. Ürün grubu sütunu yoksa sayfa adı kullanılır.
+            Her ürün grubu ayrı sayfada olabilir (sayfa adı ürün grubu olur) ya da tek sayfada &quot;Ürün Grubu&quot; sütunuyla. Gerekli sütunlar: Kalem Adı ve Zorunlu/Opsiyonel.
           </p>
         </div>
         <div className="flex gap-2">

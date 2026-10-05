@@ -39,10 +39,10 @@ const BASLIK_ESLESMELERI: Record<keyof SablonSatiri | "tip", string[]> = {
   ad: ["kalemadi", "kalem", "ad", "adi"],
   tip: ["tip", "tur", "zorunlu", "zorunluopsiyonel", "durum"],
   zorunlu: [],
-  birim: ["birim", "olcubirimi"],
-  varsayilan_kullanim: ["varsayilankullanim", "kullanim", "miktar", "sarfiyat"],
+  birim: ["birim", "olcubirimi", "varsayilanbirim"],
+  varsayilan_kullanim: ["varsayilankullanim", "kullanim", "tipikkullanim", "miktar", "sarfiyat"],
   varsayilan_birim_fiyat: ["birimfiyat", "fiyat", "varsayilanbirimfiyat"],
-  anahtar_kelimeler: ["anahtarkelimeler", "anahtarkelime", "kelimeler", "etiketler"],
+  anahtar_kelimeler: ["anahtarkelimeler", "anahtarkelime", "sartnameanahtarkelimeleri", "kelimeler", "etiketler"],
 };
 
 export function urunGrubuBul(metin: string): string | null {
@@ -77,7 +77,10 @@ export function sayfalariCoz(sayfalar: { ad: string; satirlar: unknown[][] }[]):
       r.some((h) => BASLIK_ESLESMELERI.ad.includes(sadelestir(String(h ?? "")))),
     );
     if (baslikIndeksi < 0) {
-      hatalar.push(`"${sayfa.ad}" sayfasında "Kalem Adı" başlığı bulunamadı, sayfa atlandı.`);
+      // Kılavuz, segment tablosu gibi kalem içermeyen sayfalar sessizce atlanır
+      if (urunGrubuBul(sayfa.ad)) {
+        hatalar.push(`"${sayfa.ad}" sayfasında "Kalem Adı" başlığı bulunamadı, sayfa atlandı.`);
+      }
       continue;
     }
     const basliklar = sayfa.satirlar[baslikIndeksi].map((h) => sadelestir(String(h ?? "")));
@@ -94,10 +97,8 @@ export function sayfalariCoz(sayfalar: { ad: string; satirlar: unknown[][] }[]):
       kelimeler: sutun("anahtar_kelimeler"),
     };
     const sayfaGrubu = urunGrubuBul(sayfa.ad);
-    if (s.grup < 0 && !sayfaGrubu) {
-      hatalar.push(`"${sayfa.ad}" sayfasında "Ürün Grubu" sütunu yok ve sayfa adı bir ürün grubuna uymuyor, sayfa atlandı.`);
-      continue;
-    }
+    // Ürün grubu sütunu yoksa ve sayfa adı bir ürün grubu değilse kalem sayfası değildir (ör. kılavuz)
+    if (s.grup < 0 && !sayfaGrubu) continue;
     if (s.tip < 0) {
       hatalar.push(`"${sayfa.ad}" sayfasında "Tip" (Zorunlu/Opsiyonel) sütunu bulunamadı, sayfa atlandı.`);
       continue;
