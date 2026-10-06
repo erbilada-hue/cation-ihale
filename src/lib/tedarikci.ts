@@ -171,3 +171,52 @@ export function enUygunFiyat<T extends KarsilastirilanFiyat>(
 export function birimFiyatMetni(f: { fiyat: number; para_birimi: string; birim: string }): string {
   return `${fiyatYaz(f.fiyat, f.para_birimi)} / ${f.birim}`;
 }
+
+// ---------------------------------------------------------------------------
+// Kalem aileleri: "Ana fermuar", "Cep fermuarı" ve fiyat listesindeki "Fermuar" aynı aileden
+// ---------------------------------------------------------------------------
+
+// Sıra önemli: "Reflektör bant" cırt banttan, "Baskılı etiket" baskıdan önce yakalanır
+const KALEM_AILELERI: [aile: string, kelimeler: string[]][] = [
+  ["reflektor", ["reflekt"]],
+  ["cirt", ["cirt", "velkro"]],
+  ["fermuar", ["fermuar"]],
+  ["etiket", ["etiket", "label", "yikamatalimat"]],
+  ["nakis", ["nakis", "isleme"]],
+  ["baski", ["baski", "serigrafi", "dtf", "transfer", "gofre"]],
+  ["dugme", ["dugme", "citcit", "kusgozu", "kliket"]],
+  ["metal", ["toka", "kanca", "metal"]],
+  ["kordon", ["kordon", "buzgu", "stoper"]],
+  ["lastik", ["lastik", "ribana", "elastik"]],
+  ["biye", ["biye", "serit", "grogren"]],
+  ["ambalaj", ["ambalaj", "poset", "koli"]],
+  ["nakliye", ["nakliye", "sevkiyat"]],
+];
+
+export function kalemAilesi(ad: string): string | null {
+  const s = kalemAnahtari(ad);
+  if (!s) return null;
+  return KALEM_AILELERI.find(([, kelimeler]) => kelimeler.some((k) => s.includes(k)))?.[0] ?? null;
+}
+
+/** Fiyat listesindeki kalem, maliyet tablosundaki kalemle aynı mı ya da aynı aileden mi */
+export function kalemleEslesir(fiyatKalemi: string, kalemAdi: string): boolean {
+  if (kalemAnahtari(fiyatKalemi) === kalemAnahtari(kalemAdi)) return true;
+  const aile = kalemAilesi(kalemAdi);
+  return aile != null && aile === kalemAilesi(fiyatKalemi);
+}
+
+/**
+ * "Boş fiyatları listeden doldur" için: sadece adı birebir aynı ve aynı ürünü anlatan fiyatlar arasından seçer.
+ * Aynı adda farklı ürünler varsa (ör. 16 boy ve 28 boy düğme) seçim kullanıcıya bırakılır.
+ */
+export function otomatikFiyat<T extends KarsilastirilanFiyat & { kalem_adi: string; aciklama: string }>(
+  kalemAdi: string,
+  fiyatlar: T[],
+  kurlar: Kurlar,
+  bugun: Date = new Date(),
+): T | null {
+  const ayni = fiyatlar.filter((f) => kalemAnahtari(f.kalem_adi) === kalemAnahtari(kalemAdi));
+  if (new Set(ayni.map((f) => kalemAnahtari(f.aciklama))).size > 1) return null;
+  return enUygunFiyat(ayni, kurlar, bugun);
+}

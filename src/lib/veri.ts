@@ -125,10 +125,16 @@ function fiyatiDuzelt<T extends TedarikciFiyati>(f: T): T {
 
 /** Tüm fiyat listesi, tedarikçi adıyla */
 export async function fiyatListesiniGetir(supabase: Supabase, tedarikciId?: string) {
-  let sorgu = supabase.from("tedarikci_fiyatlari").select("*, tedarikciler(ad)").order("kalem_adi");
-  if (tedarikciId) sorgu = sorgu.eq("tedarikci_id", tedarikciId);
-  const { data } = await sorgu;
-  return ((data ?? []) as (TedarikciFiyati & { tedarikciler: { ad: string } | null })[]).map(
+  // Supabase bir seferde en fazla 1000 satır döndürür; liste daha uzun olabilir
+  const data: unknown[] = [];
+  for (let bas = 0; ; bas += 1000) {
+    let sorgu = supabase.from("tedarikci_fiyatlari").select("*, tedarikciler(ad)").order("kalem_adi").order("id");
+    if (tedarikciId) sorgu = sorgu.eq("tedarikci_id", tedarikciId);
+    const { data: sayfa } = await sorgu.range(bas, bas + 999);
+    data.push(...(sayfa ?? []));
+    if (!sayfa || sayfa.length < 1000) break;
+  }
+  return (data as (TedarikciFiyati & { tedarikciler: { ad: string } | null })[]).map(
     ({ tedarikciler, ...f }): TedarikciFiyatiAdli => fiyatiDuzelt({ ...f, tedarikci_adi: tedarikciler?.ad ?? "" }),
   );
 }

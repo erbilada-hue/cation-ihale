@@ -9,7 +9,7 @@ import { BIRIMLER, PARA_BIRIMLERI, URUN_GRUPLARI, urunGrubuAdi } from "@/lib/sab
 import { useKayit } from "@/lib/useKayit";
 import { SayiGirdisi } from "@/components/SayiGirdisi";
 import { SartnameDosyalari } from "@/components/SartnameDosyalari";
-import { enUygunFiyat, eskiMi, gunFarki, kalemAnahtari } from "@/lib/tedarikci";
+import { eskiMi, gunFarki, kalemAnahtari, kalemleEslesir, otomatikFiyat } from "@/lib/tedarikci";
 import { fiyatYaz } from "@/lib/format";
 import type { IhaleDosyasi, KalemSablonu, TedarikciFiyatiAdli, Teklif, UrunKalemi, UrunKalemli } from "@/lib/tipler";
 import {
@@ -368,18 +368,20 @@ function UrunKarti({
   const b = sonuc.birim;
   const t = sonuc.toplam;
   const [acikListe, setAcikListe] = useState<string | null>(null);
+  const [listeArama, setListeArama] = useState("");
 
-  // Kalem adına göre tedarikçi fiyatları
-  const eslesenler = (k: UrunKalemi) => fiyatListesi.filter((f) => kalemAnahtari(f.kalem_adi) === kalemAnahtari(k.ad));
+  // Kalem adına ya da aynı aileye (ör. "Ana fermuar" ↔ "Fermuar") göre tedarikçi fiyatları
+  const eslesenler = (k: UrunKalemi) => fiyatListesi.filter((f) => kalemleEslesir(f.kalem_adi, k.ad));
   const fiyatSec = (k: UrunKalemi, f: TedarikciFiyatiAdli) =>
     onKalem(k.id, { birim_fiyat: f.fiyat, para_birimi: f.para_birimi, tedarikci_fiyat_id: f.id });
-  const doldurulabilir = urun.urun_kalemleri.filter((k) => k.birim_fiyat == null && eslesenler(k).length > 0);
+  // Otomatik doldurma sadece tek bir ürünü anlatan, adı birebir aynı fiyatlarda yapılır
+  const otomatikler = urun.urun_kalemleri
+    .filter((k) => k.birim_fiyat == null)
+    .map((k) => ({ k, f: otomatikFiyat(k.ad, fiyatListesi, kurlar) }))
+    .filter((x): x is { k: UrunKalemi; f: TedarikciFiyatiAdli } => x.f != null);
 
   function bosFiyatlariDoldur() {
-    for (const k of doldurulabilir) {
-      const f = enUygunFiyat(eslesenler(k), kurlar);
-      if (f) fiyatSec(k, f);
-    }
+    for (const { k, f } of otomatikler) fiyatSec(k, f);
   }
 
   return (
@@ -497,7 +499,10 @@ function UrunKarti({
                             <button
                               type="button"
                               className="mt-0.5 text-xs text-brand hover:underline"
-                              onClick={() => setAcikListe(acikListe === k.id ? null : k.id)}
+                              onClick={() => {
+                                setAcikListe(acikListe === k.id ? null : k.id);
+                                setListeArama("");
+                              }}
                             >
                               Fiyat listesi ({liste.length})
                             </button>
@@ -531,7 +536,17 @@ function UrunKarti({
                               <div className="mb-1 px-2 text-xs text-slate-500">
                                 {k.ad} için tedarikçi fiyatları (KDV hariç). Seçtiğiniz fiyat kaleme yazılır.
                               </div>
-                              {liste.map((f) => (
+                              {liste.length > 8 && (
+                                <input
+                                  aria-label="Fiyat listesinde ara"
+                                  value={listeArama}
+                                  onChange={(e) => setListeArama(e.target.value)}
+                                  placeholder="Ara: tedarikçi, ölçü, renk… (ör. 75 cm separe)"
+                                  className="girdi mb-1 py-1.5"
+                                  autoFocus
+                                />
+                              )}
+                              {listedeAra(liste, listeArama, k.ad).slice(0, LISTE_SINIRI).map((f) => (
                                 <button
                                   key={f.id}
                                   type="button"
@@ -545,6 +560,9 @@ function UrunKarti({
                                 >
                                   <span className="flex-1">
                                     {f.tedarikci_adi}
+                                    {kalemAnahtari(f.kalem_adi) !== kalemAnahtari(k.ad) && (
+                                      <span className="text-slate-500"> · {f.kalem_adi}</span>
+                                    )}
                                     {f.aciklama && <span className="text-slate-500"> · {f.aciklama}</span>}
                                   </span>
                                   <span className="rakam">
@@ -557,6 +575,14 @@ function UrunKarti({
                                   </span>
                                 </button>
                               ))}
+                              {listedeAra(liste, listeArama, k.ad).length > LISTE_SINIRI && (
+                                <div className="px-2 pt-1 text-xs text-slate-500">
+                                  {listedeAra(liste, listeArama, k.ad).length - LISTE_SINIRI} fiyat daha var; aramayı daraltın.
+                                </div>
+                              )}
+                              {listedeAra(liste, listeArama, k.ad).length === 0 && (
+                                <div className="px-2 py-1 text-sm text-slate-500">Aramaya uyan fiyat yok.</div>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -576,9 +602,9 @@ function UrunKarti({
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <KalemEkle urun={urun} sablonlar={sablonlar} onEkle={onKalemEkle} />
-            {doldurulabilir.length > 0 && (
+            {otomatikler.length > 0 && (
               <button type="button" className="btn-ikincil btn-kucuk mt-4 py-1.5" onClick={bosFiyatlariDoldur}>
-                Boş fiyatları listeden doldur ({doldurulabilir.length})
+                Boş fiyatları listeden doldur ({otomatikler.length})
               </button>
             )}
           </div>
@@ -786,4 +812,22 @@ function UrunEkleFormu({
       </button>
     </form>
   );
+}
+
+const LISTE_SINIRI = 40;
+
+/** Maliyet tablosundaki fiyat listesi: aramaya göre süzülür; adı birebir aynı olanlar önce, sonra en yeni tarihli */
+function listedeAra(liste: TedarikciFiyatiAdli[], arama: string, kalemAdi: string) {
+  const kelimeler = arama.split(/\s+/).map(kalemAnahtari).filter(Boolean);
+  const anahtar = kalemAnahtari(kalemAdi);
+  return liste
+    .filter((f) => {
+      const metin = kalemAnahtari(`${f.tedarikci_adi} ${f.kalem_adi} ${f.aciklama}`);
+      return kelimeler.every((k) => metin.includes(k));
+    })
+    .sort(
+      (a, b) =>
+        Number(kalemAnahtari(b.kalem_adi) === anahtar) - Number(kalemAnahtari(a.kalem_adi) === anahtar) ||
+        b.fiyat_tarihi.localeCompare(a.fiyat_tarihi),
+    );
 }

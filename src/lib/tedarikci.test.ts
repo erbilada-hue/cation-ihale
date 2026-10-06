@@ -4,7 +4,10 @@ import {
   eskiMi,
   fiyatTalebiMesaji,
   gunFarki,
+  kalemAilesi,
   kalemAnahtari,
+  kalemleEslesir,
+  otomatikFiyat,
   tedarikciFiyatiOku,
 } from "./tedarikci";
 
@@ -99,4 +102,43 @@ describe("mesaj", () => {
 
 it("kalem adlarını harf farkı gözetmeden eşleştirir", () => {
   expect(kalemAnahtari("Fason – Dikim")).toBe(kalemAnahtari("FASON DİKİM"));
+});
+
+describe("kalem aileleri", () => {
+  it("kütüphane adlarını fiyat listesindeki genel adlarla eşleştirir", () => {
+    expect(kalemleEslesir("Fermuar", "Ana fermuar")).toBe(true);
+    expect(kalemleEslesir("Fermuar", "Cep fermuarları")).toBe(true);
+    expect(kalemleEslesir("Çıtçıt / Kuşgözü", "Düğme / Kanca")).toBe(true);
+    expect(kalemleEslesir("Dokuma etiket", "Kol etiketi / Woven label")).toBe(true);
+    expect(kalemleEslesir("Baskılı etiket / yıkama talimatı", "Etiket seti")).toBe(true);
+    expect(kalemleEslesir("Reflektör bant", "Reflektör bant")).toBe(true);
+    expect(kalemleEslesir("Cırt bant", "Velkro / Cırt bant")).toBe(true);
+    expect(kalemleEslesir("Ribana / Yaka", "Ribana / Lastik")).toBe(true);
+    expect(kalemleEslesir("Biye / Şerit", "Kontrast şerit / Biye")).toBe(true);
+    expect(kalemleEslesir("Toka", "Metal / Plastik aksesuar")).toBe(true);
+  });
+
+  it("farklı aileleri karıştırmaz", () => {
+    expect(kalemleEslesir("Baskılı etiket / yıkama talimatı", "Logo baskı")).toBe(false);
+    expect(kalemleEslesir("Reflektör bant", "Velkro / Cırt bant")).toBe(false);
+    expect(kalemleEslesir("Fermuar", "Ana kumaş")).toBe(false);
+    expect(kalemleEslesir("Ana kumaş", "Astar kumaş")).toBe(false);
+    expect(kalemAilesi("Ana kumaş")).toBeNull();
+  });
+
+  it("otomatik doldurma sadece aynı adlı ve aynı ürünü anlatan fiyatlardan seçer", () => {
+    const bugun = new Date("2026-10-06T12:00:00+03:00");
+    const f = (id: string, kalem_adi: string, aciklama: string, fiyat: number) => ({
+      id,
+      kalem_adi,
+      aciklama,
+      fiyat,
+      para_birimi: "TRY",
+      fiyat_tarihi: "2026-10-01",
+    });
+    const kurlar = { USD: null, EUR: null };
+    expect(otomatikFiyat("Düğme", [f("a", "Düğme", "18 boy", 0.2), f("b", "Düğme", "28 boy", 0.5)], kurlar, bugun)).toBeNull();
+    expect(otomatikFiyat("Düğme", [f("a", "Düğme", "18 boy", 0.2), f("b", "Düğme", "18 BOY", 0.18)], kurlar, bugun)?.id).toBe("b");
+    expect(otomatikFiyat("Ana fermuar", [f("a", "Fermuar", "", 5)], kurlar, bugun)).toBeNull();
+  });
 });

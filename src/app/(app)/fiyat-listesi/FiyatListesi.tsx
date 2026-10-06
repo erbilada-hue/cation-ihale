@@ -10,6 +10,7 @@ import { FiyatFormu } from "@/components/FiyatFormu";
 import { FiyatTarihi, KdvRozeti } from "@/components/FiyatRozetleri";
 import { TalepHazirla } from "@/components/TalepHazirla";
 import { talepKapat } from "../tedarikciler/actions";
+import { FiyatExceliYukle } from "./FiyatExceliYukle";
 
 type Props = {
   ilkFiyatlar: TedarikciFiyatiAdli[];
@@ -21,6 +22,8 @@ type Props = {
 };
 
 const KURSUZ = { USD: null, EUR: null };
+/** Arama yokken her kalem grubunda ilk bu kadar satır gösterilir */
+const GRUP_ONIZLEME = 10;
 
 export function FiyatListesi({ ilkFiyatlar, tedarikciler, ilkTalepler, kalemOnerileri, kdvOrani, firmaAdi }: Props) {
   const router = useRouter();
@@ -32,6 +35,8 @@ export function FiyatListesi({ ilkFiyatlar, tedarikciler, ilkTalepler, kalemOner
   const [talepAcik, setTalepAcik] = useState(false);
   const [yeniFiyat, setYeniFiyat] = useState(false);
   const [cevaplanan, setCevaplanan] = useState<string | null>(null);
+  const [excelAcik, setExcelAcik] = useState(false);
+  const [acikGruplar, setAcikGruplar] = useState<Set<string>>(new Set());
 
   // Sunucudan yenilenen liste (ör. "Gönderdim" sonrası) ekrana yansısın
   useEffect(() => setFiyatlar(ilkFiyatlar), [ilkFiyatlar]);
@@ -56,9 +61,22 @@ export function FiyatListesi({ ilkFiyatlar, tedarikciler, ilkTalepler, kalemOner
     }
     return Array.from(harita.values())
       .map((satirlar) => {
-        const sirali = [...satirlar].sort((a, b) => a.fiyat - b.fiyat);
-        const enUygun = satirlar.length > 1 ? enUygunFiyat(satirlar, KURSUZ) : null;
-        return { ad: satirlar[0].kalem_adi, satirlar: sirali, enUygunId: enUygun?.id ?? null };
+        // Aynı açıklamalı satırlar sıralı dursun; "en uygun" sadece aynı ürünü anlatan farklı tedarikçiler arasında
+        const sirali = [...satirlar].sort(
+          (a, b) => a.aciklama.localeCompare(b.aciklama, "tr") || a.fiyat - b.fiyat,
+        );
+        const altGruplar = new Map<string, TedarikciFiyatiAdli[]>();
+        for (const f of satirlar) {
+          const k = kalemAnahtari(f.aciklama);
+          altGruplar.set(k, [...(altGruplar.get(k) ?? []), f]);
+        }
+        const enUygunIdler = new Set<string>();
+        for (const l of altGruplar.values()) {
+          if (new Set(l.map((f) => f.tedarikci_id)).size < 2) continue;
+          const e = enUygunFiyat(l, KURSUZ);
+          if (e) enUygunIdler.add(e.id);
+        }
+        return { ad: satirlar[0].kalem_adi, satirlar: sirali, enUygunIdler };
       })
       .sort((a, b) => a.ad.localeCompare(b.ad, "tr"));
   }, [fiyatlar, arama, sadeceEski]);
@@ -87,19 +105,33 @@ export function FiyatListesi({ ilkFiyatlar, tedarikciler, ilkTalepler, kalemOner
     if (s.hata === undefined) setTalepler((l) => l.filter((x) => x.id !== t.id));
   }
 
+  // Yükleme bölümü iki görünümde de ilk sırada durur; ilk yüklemeden sonra liste açılınca sonuç mesajı kaybolmaz
+  const excelBolumu = excelAcik ? <FiyatExceliYukle tedarikciler={tedarikciler} onKapat={() => setExcelAcik(false)} /> : null;
+
   if (tedarikciler.length === 0) {
     return (
-      <div className="kart p-10 text-center">
-        <p className="text-slate-600">Fiyat girmek için önce tedarikçi ekleyin.</p>
-        <Link href="/tedarikciler/yeni" className="btn-birincil mt-4">
-          Tedarikçi ekle
-        </Link>
+      <div className="space-y-6">
+        {excelBolumu}
+        <div className="kart p-10 text-center">
+          <p className="text-slate-600">
+            Fiyat girmek için önce tedarikçi ekleyin ya da elinizdeki fiyat listesini Excel&apos;den yükleyin.
+          </p>
+          <div className="mt-4 flex justify-center gap-2">
+            <Link href="/tedarikciler/yeni" className="btn-birincil">
+              Tedarikçi ekle
+            </Link>
+            <button type="button" className="btn-ikincil" onClick={() => setExcelAcik(true)}>
+              Excel&apos;den yükle
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      {excelBolumu}
       {talepler.length > 0 && (
         <section id="cevaplar" className="kart p-6">
           <h2 className="mb-1 font-semibold text-brand-dark">Bekleyen cevaplar</h2>
@@ -211,6 +243,9 @@ export function FiyatListesi({ ilkFiyatlar, tedarikciler, ilkTalepler, kalemOner
           <button type="button" className="btn-ikincil" onClick={() => setYeniFiyat(true)}>
             + Fiyat ekle
           </button>
+          <button type="button" className="btn-ikincil" onClick={() => setExcelAcik(true)}>
+            Excel&apos;den yükle
+          </button>
         </div>
       </div>
 
@@ -252,10 +287,10 @@ export function FiyatListesi({ ilkFiyatlar, tedarikciler, ilkTalepler, kalemOner
                   <td className="px-4 pt-3" />
                   <td colSpan={6} className="px-2 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     {g.ad}
-                    {g.satirlar.length > 1 && <span className="ml-2 font-normal normal-case">{g.satirlar.length} tedarikçi</span>}
+                    {g.satirlar.length > 1 && <span className="ml-2 font-normal normal-case">{g.satirlar.length} fiyat</span>}
                   </td>
                 </tr>
-                {g.satirlar.map((f) => (
+                {(arama || acikGruplar.has(g.ad) ? g.satirlar : g.satirlar.slice(0, GRUP_ONIZLEME)).map((f) => (
                   <tr key={f.id} className={secili.has(f.id) ? "bg-brand-soft/40" : ""}>
                     <td className="px-4 py-2">
                       <input
@@ -271,13 +306,13 @@ export function FiyatListesi({ ilkFiyatlar, tedarikciler, ilkTalepler, kalemOner
                       </Link>
                     </td>
                     <td className="px-2 py-2 text-slate-600">{f.aciklama || "—"}</td>
-                    <td className="rakam px-2 py-2 text-right">
-                      <span className={f.id === g.enUygunId ? "font-semibold text-green-700" : ""}>
+                    <td className="rakam whitespace-nowrap px-2 py-2 text-right">
+                      <span className={g.enUygunIdler.has(f.id) ? "font-semibold text-green-700" : ""}>
                         {fiyatYaz(f.fiyat, f.para_birimi)}
                       </span>{" "}
                       <span className="text-slate-400">/ {f.birim}</span>
                       <div className="space-x-1">
-                        {f.id === g.enUygunId && <span className="rozet bg-green-50 text-green-700">en uygun</span>}
+                        {g.enUygunIdler.has(f.id) && <span className="rozet bg-green-50 text-green-700">en uygun</span>}
                         <KdvRozeti durum={f.kdv_durumu} />
                       </div>
                     </td>
@@ -288,6 +323,20 @@ export function FiyatListesi({ ilkFiyatlar, tedarikciler, ilkTalepler, kalemOner
                     </td>
                   </tr>
                 ))}
+                {!arama && !acikGruplar.has(g.ad) && g.satirlar.length > GRUP_ONIZLEME && (
+                  <tr>
+                    <td />
+                    <td colSpan={6} className="px-2 pb-3">
+                      <button
+                        type="button"
+                        className="text-sm text-brand hover:underline"
+                        onClick={() => setAcikGruplar((s) => new Set(s).add(g.ad))}
+                      >
+                        Tümünü göster ({g.satirlar.length})
+                      </button>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             ))}
           </table>
