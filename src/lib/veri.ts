@@ -6,6 +6,7 @@ import type {
   Teklif,
   FiyatTalebi,
   IhaleDosyasi,
+  Musteri,
   Tedarikci,
   TedarikciFiyati,
   TedarikciFiyatiAdli,
@@ -112,6 +113,23 @@ export async function dosyalariGetir(supabase: Supabase, ihaleId: string) {
     .eq("ihale_id", ihaleId)
     .order("created_at");
   return ((data ?? []) as IhaleDosyasi[]).map((d) => ({ ...d, boyut: Number(d.boyut) }));
+}
+
+export async function musterileriGetir(supabase: Supabase) {
+  const { data } = await supabase.from("musteriler").select("*").order("ad");
+  return (data ?? []) as Musteri[];
+}
+
+/** Müşteri id → o müşterinin ihalelerinde yazılmış markalar (ihale formunda öneri için) */
+export async function markalariGetir(supabase: Supabase): Promise<Record<string, string[]>> {
+  const { data } = await supabase.from("ihaleler").select("musteri_id, marka").not("musteri_id", "is", null).neq("marka", "");
+  const sonuc: Record<string, string[]> = {};
+  for (const r of (data ?? []) as { musteri_id: string; marka: string }[]) {
+    const liste = (sonuc[r.musteri_id] ??= []);
+    if (!liste.includes(r.marka)) liste.push(r.marka);
+  }
+  for (const k of Object.keys(sonuc)) sonuc[k].sort((a, b) => a.localeCompare(b, "tr"));
+  return sonuc;
 }
 
 export async function tedarikcileriGetir(supabase: Supabase) {

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
 import { bekleyenTalepleriGetir, fiyatListesiniGetir, tedarikcileriGetir } from "@/lib/veri";
 import { eskiMi } from "@/lib/tedarikci";
-import TedarikciArama from "./TedarikciArama";
+import AramaKutusu from "@/components/AramaKutusu";
 
 export const dynamic = "force-dynamic";
 
@@ -62,7 +62,7 @@ export default async function TedarikcilerSayfasi({ searchParams }: { searchPara
 
       {tumu.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <TedarikciArama />
+          <AramaKutusu etiket="Tedarikçi ara" ipucu="Tedarikçi, yetkili veya telefon ara…" />
           {SEKMELER.map((s) => (
             <Link
               key={s.kod}

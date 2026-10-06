@@ -40,7 +40,11 @@ export type KalemSablonu = {
 export type Ihale = {
   id: string;
   ad: string;
+  /** Müşterinin adı; PDF ve yapay zekâ bu metni kullanır. Müşteri kartı seçiliyse onun adıdır. */
   musteri: string;
+  musteri_id: string | null;
+  /** Aracı firmalarda işin ait olduğu marka / proje (ör. Castrol) */
+  marka: string;
   yetkili: string;
   son_teklif_tarihi: string | null;
   teslim_yeri: string;
@@ -103,6 +107,17 @@ export type IhaleDosyasi = {
   yol: string;
   boyut: number;
   tur: string;
+  created_at: string;
+};
+
+export type Musteri = {
+  id: string;
+  ad: string;
+  yetkili: string;
+  telefon: string;
+  eposta: string;
+  adres: string;
+  notlar: string;
   created_at: string;
 };
 
