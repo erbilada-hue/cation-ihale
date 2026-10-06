@@ -5,13 +5,36 @@ import { eskiMi } from "@/lib/tedarikci";
 
 export const dynamic = "force-dynamic";
 
-export default async function TedarikcilerSayfasi() {
+/** Liste üstündeki sekmeler; "Diğer" bu üçüne girmeyen her şeydir (fason, ambalaj, nakliye, boş) */
+const SEKMELER = [
+  { kod: "", ad: "Tümü" },
+  { kod: "kumas", ad: "Kumaş" },
+  { kod: "baski", ad: "Baskı-Nakış" },
+  { kod: "aksesuar", ad: "Aksesuar" },
+  { kod: "diger", ad: "Diğer" },
+] as const;
+
+const sade = (s: string) => s.toLocaleLowerCase("tr").replace(/ı/g, "i").normalize("NFKD").replace(/[^a-z]/g, "");
+
+/** Excel'den gelen "KUMAŞ", "kumas" gibi yazımları da doğru sekmeye koyar */
+function sekmesi(kategori: string): string {
+  const k = sade(kategori);
+  if (k.startsWith("kumas")) return "kumas";
+  if (k.startsWith("baski") || k.startsWith("nakis")) return "baski";
+  if (k.startsWith("aksesuar")) return "aksesuar";
+  return "diger";
+}
+
+export default async function TedarikcilerSayfasi({ searchParams }: { searchParams: { tur?: string } }) {
+  const secili = SEKMELER.some((s) => s.kod === searchParams.tur) ? searchParams.tur! : "";
   const supabase = sunucuIstemcisi();
-  const [tedarikciler, fiyatlar, talepler] = await Promise.all([
+  const [tumu, fiyatlar, talepler] = await Promise.all([
     tedarikcileriGetir(supabase),
     fiyatListesiniGetir(supabase),
     bekleyenTalepleriGetir(supabase),
   ]);
+  const tedarikciler = secili ? tumu.filter((t) => sekmesi(t.kategori) === secili) : tumu;
+  const sayi = (kod: string) => (kod ? tumu.filter((t) => sekmesi(t.kategori) === kod).length : tumu.length);
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -25,7 +48,25 @@ export default async function TedarikcilerSayfasi() {
         </Link>
       </div>
 
-      {tedarikciler.length === 0 ? (
+      {tumu.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {SEKMELER.map((s) => (
+            <Link
+              key={s.kod}
+              href={s.kod ? `/tedarikciler?tur=${s.kod}` : "/tedarikciler"}
+              className={`rounded-full border px-3 py-1.5 text-sm ${
+                secili === s.kod ? "border-brand bg-brand text-white" : "border-cizgi bg-white text-slate-600 hover:border-brand hover:text-brand"
+              }`}
+            >
+              {s.ad} <span className="rakam opacity-70">{sayi(s.kod)}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {tumu.length > 0 && tedarikciler.length === 0 ? (
+        <div className="kart p-10 text-center text-slate-600">Bu grupta tedarikçi yok.</div>
+      ) : tedarikciler.length === 0 ? (
         <div className="kart p-10 text-center">
           <p className="text-slate-600">Henüz tedarikçi yok.</p>
           <Link href="/tedarikciler/yeni" className="btn-birincil mt-4">
