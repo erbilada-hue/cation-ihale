@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { hesaplaUrun, kalemTutari } from "@/lib/maliyet";
 import { kalemGirdisi, maliyetGirdisi, type Kurlar } from "@/lib/maliyetGirdisi";
@@ -9,7 +9,9 @@ import { BIRIMLER, PARA_BIRIMLERI, URUN_GRUPLARI, urunGrubuAdi } from "@/lib/sab
 import { useKayit } from "@/lib/useKayit";
 import { SayiGirdisi } from "@/components/SayiGirdisi";
 import { SartnameDosyalari } from "@/components/SartnameDosyalari";
-import type { IhaleDosyasi, KalemSablonu, Teklif, UrunKalemi, UrunKalemli } from "@/lib/tipler";
+import { enUygunFiyat, eskiMi, gunFarki, kalemAnahtari } from "@/lib/tedarikci";
+import { fiyatYaz } from "@/lib/format";
+import type { IhaleDosyasi, KalemSablonu, TedarikciFiyatiAdli, Teklif, UrunKalemi, UrunKalemli } from "@/lib/tipler";
 import {
   ihaleKurGuncelle,
   kalemEkle,
@@ -28,9 +30,11 @@ type Props = {
   sablonlar: KalemSablonu[];
   teklifler: Teklif[];
   dosyalar: IhaleDosyasi[];
+  /** Tedarikçi fiyat listesi; kalemlere fiyat seçmek için */
+  fiyatListesi: TedarikciFiyatiAdli[];
 };
 
-export function MaliyetEditoru({ ihaleId, ilkKurlar, ilkUrunler, sablonlar, teklifler, dosyalar }: Props) {
+export function MaliyetEditoru({ ihaleId, ilkKurlar, ilkUrunler, sablonlar, teklifler, dosyalar, fiyatListesi }: Props) {
   const router = useRouter();
   const [urunler, setUrunler] = useState(ilkUrunler);
   const [kurlar, setKurlar] = useState(ilkKurlar);
@@ -232,6 +236,7 @@ export function MaliyetEditoru({ ihaleId, ilkKurlar, ilkUrunler, sablonlar, tekl
           sablonlar={sablonlar.filter((s) => s.urun_grubu === urun.urun_grubu)}
           kurlar={kurlar}
           dosyalar={dosyalar.filter((d) => d.urun_id === urun.id)}
+          fiyatListesi={fiyatListesi}
           onUrun={(d) => urunDegistir(urun.id, d)}
           onKalem={(kalemId, d) => kalemDegistir(urun.id, kalemId, d)}
           onKalemEkle={(g) => kalemiEkle(urun.id, g)}
@@ -339,6 +344,7 @@ type UrunKartiProps = {
   sablonlar: KalemSablonu[];
   kurlar: Kurlar;
   dosyalar: IhaleDosyasi[];
+  fiyatListesi: TedarikciFiyatiAdli[];
   onUrun: (d: Partial<UrunKalemli>) => void;
   onKalem: (kalemId: string, d: Partial<UrunKalemi>) => void;
   onKalemEkle: (g: { sablonId: string } | { ad: string; birim: string }) => Promise<void>;
@@ -352,6 +358,7 @@ function UrunKarti({
   sablonlar,
   kurlar,
   dosyalar,
+  fiyatListesi,
   onUrun,
   onKalem,
   onKalemEkle,
@@ -360,6 +367,20 @@ function UrunKarti({
 }: UrunKartiProps) {
   const b = sonuc.birim;
   const t = sonuc.toplam;
+  const [acikListe, setAcikListe] = useState<string | null>(null);
+
+  // Kalem adına göre tedarikçi fiyatları
+  const eslesenler = (k: UrunKalemi) => fiyatListesi.filter((f) => kalemAnahtari(f.kalem_adi) === kalemAnahtari(k.ad));
+  const fiyatSec = (k: UrunKalemi, f: TedarikciFiyatiAdli) =>
+    onKalem(k.id, { birim_fiyat: f.fiyat, para_birimi: f.para_birimi, tedarikci_fiyat_id: f.id });
+  const doldurulabilir = urun.urun_kalemleri.filter((k) => k.birim_fiyat == null && eslesenler(k).length > 0);
+
+  function bosFiyatlariDoldur() {
+    for (const k of doldurulabilir) {
+      const f = enUygunFiyat(eslesenler(k), kurlar);
+      if (f) fiyatSec(k, f);
+    }
+  }
 
   return (
     <section className="kart">
@@ -406,78 +427,143 @@ function UrunKarti({
                 </tr>
               </thead>
               <tbody>
-                {urun.urun_kalemleri.map((k) => (
-                  <tr key={k.id} className="border-t border-cizgi">
-                    <td className="py-1.5 pr-2">
-                      <div className="flex items-center gap-2">
-                        <input
-                          aria-label="Kalem adı"
-                          value={k.ad}
-                          onChange={(e) => onKalem(k.id, { ad: e.target.value })}
-                          className="girdi py-1.5"
-                        />
-                        {k.zorunlu && <span className="rozet bg-slate-100 text-slate-600">zorunlu</span>}
-                      </div>
-                    </td>
-                    <td className="py-1.5 pr-2">
-                      <select
-                        aria-label="Birim"
-                        value={k.birim}
-                        onChange={(e) => onKalem(k.id, { birim: e.target.value })}
-                        className="girdi py-1.5"
-                      >
-                        {Array.from(new Set([...BIRIMLER, k.birim])).map((b) => (
-                          <option key={b} value={b}>
-                            {b}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="py-1.5 pr-2">
-                      <SayiGirdisi deger={k.kullanim} onDeger={(n) => onKalem(k.id, { kullanim: n })} className="girdi-sayi py-1.5" ariaLabel="Kullanım" />
-                    </td>
-                    <td className="py-1.5 pr-2">
-                      <div className="flex gap-1">
-                        <div className="min-w-0 flex-1">
-                          <SayiGirdisi deger={k.birim_fiyat} onDeger={(n) => onKalem(k.id, { birim_fiyat: n })} className="girdi-sayi py-1.5" ariaLabel="Birim fiyat" />
-                        </div>
-                        <select
-                          aria-label="Para birimi"
-                          title="Para birimi"
-                          value={k.para_birimi}
-                          onChange={(e) => onKalem(k.id, { para_birimi: e.target.value as UrunKalemi["para_birimi"] })}
-                          className="girdi w-14 shrink-0 px-1.5 py-1.5"
-                        >
-                          {PARA_BIRIMLERI.map((p) => (
-                            <option key={p.kod} value={p.kod}>
-                              {p.sembol}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </td>
-                    <td className="rakam py-1.5 text-right">
-                      {k.kullanim == null || k.birim_fiyat == null ? (
-                        <span className="text-amber-600">eksik</span>
-                      ) : kalemGirdisi(k, kurlar).kur == null ? (
-                        <span className="text-amber-600">kur yok</span>
-                      ) : (
-                        paraYaz(kalemTutari(kalemGirdisi(k, kurlar)))
+                {urun.urun_kalemleri.map((k) => {
+                  const liste = eslesenler(k);
+                  const kaynak = k.tedarikci_fiyat_id ? fiyatListesi.find((f) => f.id === k.tedarikci_fiyat_id) : null;
+                  return (
+                    <Fragment key={k.id}>
+                      <tr className="border-t border-cizgi">
+                        <td className="py-1.5 pr-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              aria-label="Kalem adı"
+                              value={k.ad}
+                              onChange={(e) => onKalem(k.id, { ad: e.target.value })}
+                              className="girdi py-1.5"
+                            />
+                            {k.zorunlu && <span className="rozet bg-slate-100 text-slate-600">zorunlu</span>}
+                          </div>
+                          {kaynak && (
+                            <div className={`mt-0.5 pl-1 text-xs ${eskiMi(kaynak.fiyat_tarihi) ? "text-orange-600" : "text-slate-500"}`}>
+                              {kaynak.tedarikci_adi} · {tarihYaz(kaynak.fiyat_tarihi)}
+                              {eskiMi(kaynak.fiyat_tarihi) && ` (${gunFarki(kaynak.fiyat_tarihi)} gün önce)`}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-1.5 pr-2">
+                          <select
+                            aria-label="Birim"
+                            value={k.birim}
+                            onChange={(e) => onKalem(k.id, { birim: e.target.value })}
+                            className="girdi py-1.5"
+                          >
+                            {Array.from(new Set([...BIRIMLER, k.birim])).map((b) => (
+                              <option key={b} value={b}>
+                                {b}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="py-1.5 pr-2">
+                          <SayiGirdisi deger={k.kullanim} onDeger={(n) => onKalem(k.id, { kullanim: n })} className="girdi-sayi py-1.5" ariaLabel="Kullanım" />
+                        </td>
+                        <td className="py-1.5 pr-2">
+                          <div className="flex gap-1">
+                            <div className="min-w-0 flex-1">
+                              <SayiGirdisi
+                                deger={k.birim_fiyat}
+                                onDeger={(n) => onKalem(k.id, { birim_fiyat: n, tedarikci_fiyat_id: null })}
+                                className="girdi-sayi py-1.5"
+                                ariaLabel="Birim fiyat"
+                              />
+                            </div>
+                            <select
+                              aria-label="Para birimi"
+                              title="Para birimi"
+                              value={k.para_birimi}
+                              onChange={(e) =>
+                                onKalem(k.id, { para_birimi: e.target.value as UrunKalemi["para_birimi"], tedarikci_fiyat_id: null })
+                              }
+                              className="girdi w-14 shrink-0 px-1.5 py-1.5"
+                            >
+                              {PARA_BIRIMLERI.map((p) => (
+                                <option key={p.kod} value={p.kod}>
+                                  {p.sembol}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          {liste.length > 0 && (
+                            <button
+                              type="button"
+                              className="mt-0.5 text-xs text-brand hover:underline"
+                              onClick={() => setAcikListe(acikListe === k.id ? null : k.id)}
+                            >
+                              Fiyat listesi ({liste.length})
+                            </button>
+                          )}
+                        </td>
+                        <td className="rakam py-1.5 text-right">
+                          {k.kullanim == null || k.birim_fiyat == null ? (
+                            <span className="text-amber-600">eksik</span>
+                          ) : kalemGirdisi(k, kurlar).kur == null ? (
+                            <span className="text-amber-600">kur yok</span>
+                          ) : (
+                            paraYaz(kalemTutari(kalemGirdisi(k, kurlar)))
+                          )}
+                        </td>
+                        <td className="py-1.5 text-right">
+                          <button
+                            type="button"
+                            onClick={() => onKalemSil(k)}
+                            className="px-1 text-slate-400 hover:text-red-600"
+                            aria-label={`${k.ad} kalemini sil`}
+                            title="Kalemi sil"
+                          >
+                            ×
+                          </button>
+                        </td>
+                      </tr>
+                      {acikListe === k.id && (
+                        <tr>
+                          <td colSpan={6} className="pb-3">
+                            <div className="rounded-lg border border-cizgi bg-zemin/60 p-2">
+                              <div className="mb-1 px-2 text-xs text-slate-500">
+                                {k.ad} için tedarikçi fiyatları (KDV hariç). Seçtiğiniz fiyat kaleme yazılır.
+                              </div>
+                              {liste.map((f) => (
+                                <button
+                                  key={f.id}
+                                  type="button"
+                                  onClick={() => {
+                                    fiyatSec(k, f);
+                                    setAcikListe(null);
+                                  }}
+                                  className={`flex w-full items-center gap-3 rounded px-2 py-1.5 text-left text-sm hover:bg-white ${
+                                    f.id === k.tedarikci_fiyat_id ? "bg-white ring-1 ring-brand/40" : ""
+                                  }`}
+                                >
+                                  <span className="flex-1">
+                                    {f.tedarikci_adi}
+                                    {f.aciklama && <span className="text-slate-500"> · {f.aciklama}</span>}
+                                  </span>
+                                  <span className="rakam">
+                                    {fiyatYaz(f.fiyat, f.para_birimi)} <span className="text-slate-400">/ {f.birim}</span>
+                                  </span>
+                                  {f.birim !== k.birim && <span className="rozet bg-amber-50 text-amber-800">birim farklı</span>}
+                                  <span className={`rakam w-28 text-right text-xs ${eskiMi(f.fiyat_tarihi) ? "text-orange-600" : "text-slate-500"}`}>
+                                    {tarihYaz(f.fiyat_tarihi)}
+                                    {eskiMi(f.fiyat_tarihi) && " · eski"}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
                       )}
-                    </td>
-                    <td className="py-1.5 text-right">
-                      <button
-                        type="button"
-                        onClick={() => onKalemSil(k)}
-                        className="px-1 text-slate-400 hover:text-red-600"
-                        aria-label={`${k.ad} kalemini sil`}
-                        title="Kalemi sil"
-                      >
-                        ×
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                    </Fragment>
+                  );
+                })}
                 {urun.urun_kalemleri.length === 0 && (
                   <tr>
                     <td colSpan={6} className="py-4 text-center text-slate-500">
@@ -488,7 +574,14 @@ function UrunKarti({
               </tbody>
             </table>
           </div>
-          <KalemEkle urun={urun} sablonlar={sablonlar} onEkle={onKalemEkle} />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <KalemEkle urun={urun} sablonlar={sablonlar} onEkle={onKalemEkle} />
+            {doldurulabilir.length > 0 && (
+              <button type="button" className="btn-ikincil btn-kucuk mt-4 py-1.5" onClick={bosFiyatlariDoldur}>
+                Boş fiyatları listeden doldur ({doldurulabilir.length})
+              </button>
+            )}
+          </div>
           {sonuc.eksikKalemSayisi > 0 && (
             <p className="mt-3 text-xs text-amber-700">
               {sonuc.eksikKalemSayisi} kalemde kullanım veya birim fiyat eksik; bu kalemler hesaba katılmadı.

@@ -79,6 +79,7 @@ export type UrunKalemi = {
   kullanim: number | null;
   birim_fiyat: number | null;
   para_birimi: "TRY" | "USD" | "EUR";
+  tedarikci_fiyat_id: string | null;
   sira: number;
 };
 
@@ -103,4 +104,44 @@ export type IhaleDosyasi = {
   boyut: number;
   tur: string;
   created_at: string;
+};
+
+export type Tedarikci = {
+  id: string;
+  ad: string;
+  yetkili: string;
+  telefon: string;
+  eposta: string;
+  kategori: string;
+  notlar: string;
+  created_at: string;
+};
+
+export type TedarikciFiyati = {
+  id: string;
+  tedarikci_id: string;
+  kalem_adi: string;
+  aciklama: string;
+  birim: string;
+  /** KDV hariç */
+  fiyat: number;
+  para_birimi: "TRY" | "USD" | "EUR";
+  kdv_durumu: "haric" | "dahil" | "belirsiz";
+  termin: string;
+  min_siparis: string;
+  odeme_vadesi: string;
+  fiyat_tarihi: string;
+  notlar: string;
+  updated_at: string;
+};
+
+export type TedarikciFiyatiAdli = TedarikciFiyati & { tedarikci_adi: string };
+
+export type FiyatTalebi = {
+  id: string;
+  tedarikci_id: string;
+  fiyat_idleri: string[];
+  mesaj: string;
+  gonderim_zamani: string;
+  cevap_zamani: string | null;
 };

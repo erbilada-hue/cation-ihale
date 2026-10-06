@@ -262,7 +262,7 @@ export async function kalemEkle(
   return { veri: kalemiDuzelt(data as UrunKalemi) };
 }
 
-const KALEM_ALANLARI = ["ad", "birim", "kullanim", "birim_fiyat", "para_birimi"] as const;
+const KALEM_ALANLARI = ["ad", "birim", "kullanim", "birim_fiyat", "para_birimi", "tedarikci_fiyat_id"] as const;
 type KalemAlani = (typeof KALEM_ALANLARI)[number];
 
 export async function kalemGuncelle(
@@ -273,6 +273,13 @@ export async function kalemGuncelle(
     Object.entries(degisiklik).filter(([k]) => (KALEM_ALANLARI as readonly string[]).includes(k)),
   );
   if ("ad" in temiz && !String(temiz.ad ?? "").trim()) return { hata: "Kalem adı boş olamaz." };
+  if (
+    "tedarikci_fiyat_id" in temiz &&
+    temiz.tedarikci_fiyat_id != null &&
+    !/^[0-9a-f-]{36}$/i.test(String(temiz.tedarikci_fiyat_id))
+  ) {
+    return { hata: "Tedarikçi fiyatı geçersiz." };
+  }
   if ("para_birimi" in temiz && !PARA_BIRIMLERI.some((p) => p.kod === temiz.para_birimi)) {
     return { hata: "Para birimi TL, dolar veya euro olmalı." };
   }

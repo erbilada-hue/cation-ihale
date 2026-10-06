@@ -1,6 +1,6 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
-import { ihaleGetir, segmentleriGetir, urunleriGetir } from "@/lib/veri";
+import { fiyatListesiniGetir, ihaleGetir, segmentleriGetir, urunleriGetir } from "@/lib/veri";
 import { fontlariKaydet } from "@/pdf/ortak";
 import { IcMaliyetRaporuPdf } from "@/pdf/IcMaliyetRaporu";
 import { pdfHatasi, pdfYaniti } from "@/pdf/yanit";
@@ -17,12 +17,22 @@ export async function GET(_istek: Request, { params }: { params: { ihaleId: stri
 
   const ihale = await ihaleGetir(supabase, params.ihaleId);
   if (!ihale) return new Response("İhale bulunamadı.", { status: 404 });
-  const [urunler, segmentler] = await Promise.all([urunleriGetir(supabase, ihale.id), segmentleriGetir(supabase)]);
+  const [urunler, segmentler, fiyatListesi] = await Promise.all([
+    urunleriGetir(supabase, ihale.id),
+    segmentleriGetir(supabase),
+    fiyatListesiniGetir(supabase),
+  ]);
+  const tedarikciAdlari = Object.fromEntries(fiyatListesi.map((f) => [f.id, f.tedarikci_adi]));
 
   try {
     fontlariKaydet();
     const pdf = await renderToBuffer(
-      <IcMaliyetRaporuPdf ihale={ihale} urunler={urunler} segment={segmentler.find((s) => s.segment === ihale.segment)} />,
+      <IcMaliyetRaporuPdf
+        ihale={ihale}
+        urunler={urunler}
+        segment={segmentler.find((s) => s.segment === ihale.segment)}
+        tedarikciAdlari={tedarikciAdlari}
+      />,
     );
     return pdfYaniti(pdf, `Ic-Maliyet-Raporu-${ihale.ad}.pdf`);
   } catch (e) {
