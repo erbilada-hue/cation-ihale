@@ -20,6 +20,7 @@ import { SARTNAME_KLASORU } from "@/lib/dosya";
 import { belgeyiHazirla } from "@/lib/belgeMetni";
 import { yapilandirilmisOku } from "@/lib/ai";
 import { ANALIZ_SISTEM_ISTEMI, AnalizSemasi, analiziEslestir, kutuphaneMetni, type AnalizSonucu } from "@/lib/sartnameAnalizi";
+import { MARJ_SISTEM_ISTEMI, MarjSemasi, marjIstemi, oneriyiDuzelt, type MarjGirdisi, type MarjOnerisi } from "@/lib/marjTavsiyesi";
 import type { BetaContentBlockParam } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 
 export type Sonuc<T = null> = { hata: string; veri?: undefined } | { hata?: undefined; veri: T };
@@ -524,4 +525,54 @@ export async function analizUygula(ihaleId: string, g: AnalizOnayi): Promise<Son
   revalidatePath(`/ihaleler/${ihaleId}`);
   revalidatePath("/ihaleler");
   return { veri: eklenen };
+}
+
+// ---------------------------------------------------------------------------
+// Kâr marjı tavsiyesi (yapay zekâ). Sadece öneri döner; marjı kullanıcı uygular.
+// ---------------------------------------------------------------------------
+
+export async function marjTavsiyesiAl(
+  urunId: string,
+  maliyet: Pick<MarjGirdisi, "hamMaliyet" | "fireOrani" | "fireDahilMaliyet" | "kalemler">,
+): Promise<Sonuc<MarjOnerisi>> {
+  if (!(maliyet.hamMaliyet > 0)) return { hata: "Önce kalemlerin kullanım ve fiyatlarını girin; maliyet olmadan öneri verilemez." };
+  const supabase = sunucuIstemcisi();
+  const { data: urun } = await supabase.from("ihale_urunleri").select("*").eq("id", urunId).maybeSingle();
+  if (!urun) return { hata: "Ürün bulunamadı." };
+  const ihale = await ihaleGetir(supabase, urun.ihale_id as string);
+  if (!ihale) return { hata: "İhale bulunamadı." };
+
+  // Aynı ürün grubunda diğer ihalelerde girilmiş marjlar (en yeni 15)
+  const { data: gecmisVeri } = await supabase
+    .from("ihale_urunleri")
+    .select("ad, adet, kar_marji, created_at, ihaleler!inner(id, asama)")
+    .eq("urun_grubu", urun.urun_grubu)
+    .neq("ihale_id", ihale.id)
+    .not("kar_marji", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(15);
+  const gecmis = (gecmisVeri ?? []).map((x) => {
+    const ih = x.ihaleler as unknown as { asama: string } | { asama: string }[];
+    return {
+      ad: x.ad as string,
+      adet: Number(x.adet),
+      marj: Number(x.kar_marji),
+      asama: (Array.isArray(ih) ? ih[0]?.asama : ih?.asama) ?? "",
+      tarih: tarihMetni(new Date(x.created_at as string)),
+    };
+  });
+
+  const s = await yapilandirilmisOku({
+    sistem: MARJ_SISTEM_ISTEMI,
+    icerik: marjIstemi({
+      urun: { ad: urun.ad, urun_grubu: urun.urun_grubu, aciklama: urun.aciklama ?? "", adet: Number(urun.adet) },
+      ihale: { musteri: ihale.musteri, teslim_yeri: ihale.teslim_yeri, termin: ihale.termin, kaynak: ihale.kaynak, segment: ihale.segment },
+      ...maliyet,
+      gecmis,
+    }),
+    sema: MarjSemasi,
+    efor: "low",
+  });
+  if (s.hata !== undefined) return { hata: s.hata };
+  return { veri: oneriyiDuzelt(s.veri) };
 }
