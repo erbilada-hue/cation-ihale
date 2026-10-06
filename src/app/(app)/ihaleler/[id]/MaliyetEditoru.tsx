@@ -9,14 +9,17 @@ import { BIRIMLER, PARA_BIRIMLERI, URUN_GRUPLARI, urunGrubuAdi } from "@/lib/sab
 import { useKayit } from "@/lib/useKayit";
 import { SayiGirdisi } from "@/components/SayiGirdisi";
 import { SartnameDosyalari } from "@/components/SartnameDosyalari";
+import { SartnameAnalizi } from "@/components/SartnameAnalizi";
+import type { MarjOnerisi } from "@/lib/marjTavsiyesi";
 import { eskiMi, gunFarki, kalemAnahtari, kalemleEslesir, otomatikFiyat } from "@/lib/tedarikci";
 import { fiyatYaz } from "@/lib/format";
-import type { IhaleDosyasi, KalemSablonu, TedarikciFiyatiAdli, Teklif, UrunKalemi, UrunKalemli } from "@/lib/tipler";
+import type { IhaleDosyasi, KalemSablonu, SegmentSablonu, TedarikciFiyatiAdli, Teklif, UrunKalemi, UrunKalemli } from "@/lib/tipler";
 import {
   ihaleKurGuncelle,
   kalemEkle,
   kalemGuncelle,
   kalemSil,
+  marjTavsiyesiAl,
   musteriTeklifiOlustur,
   urunEkle,
   urunGuncelle,
@@ -32,14 +35,29 @@ type Props = {
   dosyalar: IhaleDosyasi[];
   /** Tedarikçi fiyat listesi; kalemlere fiyat seçmek için */
   fiyatListesi: TedarikciFiyatiAdli[];
+  segmentler: SegmentSablonu[];
+  /** İhaleyi açarken kullanıcının seçtiği segment */
+  ihaleSegmenti: string | null;
 };
 
-export function MaliyetEditoru({ ihaleId, ilkKurlar, ilkUrunler, sablonlar, teklifler, dosyalar, fiyatListesi }: Props) {
+export function MaliyetEditoru({
+  ihaleId,
+  ilkKurlar,
+  ilkUrunler,
+  sablonlar,
+  teklifler,
+  dosyalar,
+  fiyatListesi,
+  segmentler,
+  ihaleSegmenti,
+}: Props) {
   const router = useRouter();
   const [urunler, setUrunler] = useState(ilkUrunler);
   const [kurlar, setKurlar] = useState(ilkKurlar);
   const [islemHatasi, setIslemHatasi] = useState<string | null>(null);
   const [teklifHazirlaniyor, setTeklifHazirlaniyor] = useState(false);
+  const [analizDosyasi, setAnalizDosyasi] = useState<IhaleDosyasi | null>(null);
+  const [analizMesaji, setAnalizMesaji] = useState<string | null>(null);
   const kayit = useKayit();
 
   const sonuclar = useMemo(
@@ -224,8 +242,41 @@ export function MaliyetEditoru({ ihaleId, ilkKurlar, ilkUrunler, sablonlar, tekl
       </section>
 
       <section className="kart px-6 py-4">
-        <h2 className="mb-3 font-semibold text-brand-dark">Teknik şartname ve dosyalar</h2>
-        <SartnameDosyalari ihaleId={ihaleId} urunId={null} ilkDosyalar={dosyalar.filter((d) => !d.urun_id)} />
+        <h2 className="font-semibold text-brand-dark">Teknik şartname ve dosyalar</h2>
+        <p className="mb-3 text-sm text-slate-500">
+          Müşterinin dosyasını yükleyip &quot;Yapay zekâ ile analiz et&quot;e basın; ürünler, adetler ve kalemler çıkarılır, siz
+          onaylayınca maliyet tablosu oluşur.
+        </p>
+        <SartnameDosyalari
+          ihaleId={ihaleId}
+          urunId={null}
+          ilkDosyalar={dosyalar.filter((d) => !d.urun_id)}
+          onAnaliz={(d) => {
+            setAnalizMesaji(null);
+            setAnalizDosyasi(d);
+          }}
+        />
+        {analizDosyasi && (
+          <SartnameAnalizi
+            key={analizDosyasi.id}
+            ihaleId={ihaleId}
+            dosya={analizDosyasi}
+            sablonlar={sablonlar}
+            segmentler={segmentler}
+            oncekiSegment={ihaleSegmenti}
+            mevcutUrunSayisi={urunler.length}
+            onUygulandi={(yeni) => {
+              setUrunler((l) => [...l, ...yeni]);
+              setAnalizDosyasi(null);
+              setAnalizMesaji(
+                `${yeni.length} ürün ve kalemleri oluşturuldu. Fiyat listesinde karşılığı olan kalemler otomatik doldurulabilir; kullanım miktarlarını kontrol edin.`,
+              );
+              router.refresh();
+            }}
+            onKapat={() => setAnalizDosyasi(null)}
+          />
+        )}
+        {analizMesaji && <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{analizMesaji}</p>}
       </section>
 
       {sonuclar.map(({ urun, sonuc }) => (
@@ -655,6 +706,18 @@ function UrunKarti({
               className={`mt-2 w-full accent-brand ${urun.kar_marji == null ? "opacity-40" : ""}`}
             />
             {urun.kar_marji == null && <p className="text-xs text-amber-700">Kâr marjını girin.</p>}
+            <MarjOnerisiKutusu
+              urunId={urun.id}
+              hamMaliyet={b.ham}
+              fireOrani={urun.fire_orani}
+              fireDahil={b.fireDahil}
+              kalemler={urun.urun_kalemleri.map((k) => ({
+                ad: k.ad,
+                tutar: kalemTutari(kalemGirdisi(k, kurlar)),
+                paraBirimi: k.para_birimi,
+              }))}
+              onUygula={(n) => onUrun({ kar_marji: n })}
+            />
           </div>
           <Satir ad="Kâr" birim={b.karTutari} toplam={t.karTutari} />
           <div className="rounded-lg bg-white p-3 ring-1 ring-cizgi">
@@ -676,6 +739,90 @@ function UrunKarti({
         </div>
       </div>
     </section>
+  );
+}
+
+/** Yapay zekâdan kâr marjı önerisi; kullanıcı "Uygula" demeden marj değişmez. */
+function MarjOnerisiKutusu({
+  urunId,
+  hamMaliyet,
+  fireOrani,
+  fireDahil,
+  kalemler,
+  onUygula,
+}: {
+  urunId: string;
+  hamMaliyet: number;
+  fireOrani: number | null;
+  fireDahil: number | null;
+  kalemler: { ad: string; tutar: number; paraBirimi: string }[];
+  onUygula: (n: number) => void;
+}) {
+  const [durum, setDurum] = useState<"kapali" | "bekliyor" | "acik">("kapali");
+  const [oneri, setOneri] = useState<MarjOnerisi | null>(null);
+  const [hata, setHata] = useState<string | null>(null);
+
+  async function iste() {
+    setHata(null);
+    setDurum("bekliyor");
+    try {
+      const s = await marjTavsiyesiAl(urunId, { hamMaliyet, fireOrani, fireDahilMaliyet: fireDahil, kalemler });
+      if (s.hata !== undefined) {
+        setHata(s.hata);
+        setDurum("kapali");
+        return;
+      }
+      setOneri(s.veri);
+      setDurum("acik");
+    } catch {
+      setHata("Bağlantı hatası. Tekrar deneyin.");
+      setDurum("kapali");
+    }
+  }
+
+  const yuzde = (n: number) => `%${n.toLocaleString("tr-TR", { maximumFractionDigits: 1 })}`;
+
+  if (durum !== "acik" || !oneri) {
+    return (
+      <div className="mt-2">
+        <button type="button" className="text-xs text-brand hover:underline disabled:text-slate-400" disabled={durum === "bekliyor"} onClick={iste}>
+          {durum === "bekliyor" ? "Yapay zekâ düşünüyor…" : "Yapay zekâdan marj önerisi al"}
+        </button>
+        {hata && <p className="mt-1 text-xs text-red-600">{hata}</p>}
+      </div>
+    );
+  }
+  return (
+    <div className="mt-3 rounded-lg border border-brand/30 bg-white p-3 text-xs">
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <span className="font-medium text-brand-dark">
+          Öneri: <span className="rakam text-sm">{yuzde(oneri.onerilen)}</span>
+        </span>
+        <span className="rakam text-slate-500">
+          aralık {yuzde(oneri.alt)} – {yuzde(oneri.ust)}
+        </span>
+      </div>
+      <ul className="mb-2 list-disc space-y-0.5 pl-4 text-slate-600">
+        {oneri.gerekceler.map((g, i) => (
+          <li key={i}>{g}</li>
+        ))}
+      </ul>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          className="btn-birincil btn-kucuk"
+          onClick={() => {
+            onUygula(oneri.onerilen);
+            setDurum("kapali");
+          }}
+        >
+          {yuzde(oneri.onerilen)} uygula
+        </button>
+        <button type="button" className="btn-ikincil btn-kucuk" onClick={() => setDurum("kapali")}>
+          Kapat
+        </button>
+      </div>
+    </div>
   );
 }
 

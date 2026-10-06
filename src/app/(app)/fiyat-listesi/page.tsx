@@ -9,6 +9,8 @@ import {
 import { FiyatListesi } from "./FiyatListesi";
 
 export const dynamic = "force-dynamic";
+// Tedarikçi cevabını yapay zekâ okur; birkaç saniye sürebilir
+export const maxDuration = 60;
 
 export default async function FiyatListesiSayfasi() {
   const supabase = sunucuIstemcisi();

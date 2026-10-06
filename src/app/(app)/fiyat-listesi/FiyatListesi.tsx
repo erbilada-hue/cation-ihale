@@ -9,6 +9,7 @@ import type { FiyatTalebi, Tedarikci, TedarikciFiyati, TedarikciFiyatiAdli } fro
 import { FiyatFormu } from "@/components/FiyatFormu";
 import { FiyatTarihi, KdvRozeti } from "@/components/FiyatRozetleri";
 import { TalepHazirla } from "@/components/TalepHazirla";
+import { CevapOku } from "@/components/CevapOku";
 import { talepKapat } from "../tedarikciler/actions";
 import { FiyatExceliYukle } from "./FiyatExceliYukle";
 
@@ -35,12 +36,21 @@ export function FiyatListesi({ ilkFiyatlar, tedarikciler, ilkTalepler, kalemOner
   const [talepAcik, setTalepAcik] = useState(false);
   const [yeniFiyat, setYeniFiyat] = useState(false);
   const [cevaplanan, setCevaplanan] = useState<string | null>(null);
+  const [okunanTalep, setOkunanTalep] = useState<string | null>(null);
   const [excelAcik, setExcelAcik] = useState(false);
   const [acikGruplar, setAcikGruplar] = useState<Set<string>>(new Set());
 
   // Sunucudan yenilenen liste (ör. "Gönderdim" sonrası) ekrana yansısın
   useEffect(() => setFiyatlar(ilkFiyatlar), [ilkFiyatlar]);
-  useEffect(() => setTalepler(ilkTalepler), [ilkTalepler]);
+  // Cevabı okunan talep, tüm kalemleri kaydedilip kapansa da kullanıcı kapatana kadar ekranda kalır
+  useEffect(
+    () =>
+      setTalepler((onceki) => {
+        const acik = onceki.find((t) => t.id === okunanTalep);
+        return acik && !ilkTalepler.some((t) => t.id === acik.id) ? [...ilkTalepler, acik] : ilkTalepler;
+      }),
+    [ilkTalepler, okunanTalep],
+  );
 
   const tedarikciAdi = (id: string) => tedarikciler.find((t) => t.id === id)?.ad ?? "";
 
@@ -136,8 +146,9 @@ export function FiyatListesi({ ilkFiyatlar, tedarikciler, ilkTalepler, kalemOner
         <section id="cevaplar" className="kart p-6">
           <h2 className="mb-1 font-semibold text-brand-dark">Bekleyen cevaplar</h2>
           <p className="mb-4 text-sm text-slate-500">
-            Tedarikçiden cevap gelince ilgili kalemde &quot;Cevabı gir&quot;e basın. Tüm kalemler girilince talep kendiliğinden
-            kapanır.
+            Tedarikçiden cevap gelince &quot;Cevabı yapıştır&quot; ile WhatsApp mesajını yapıştırın; yapay zekâ fiyatları okur, siz
+            kontrol edip kaydedersiniz. Tek tek girmek için kalemdeki &quot;Cevabı gir&quot;i kullanın. Tüm kalemler girilince talep
+            kendiliğinden kapanır.
           </p>
           <div className="space-y-4">
             {talepler.map((t) => {
@@ -149,10 +160,28 @@ export function FiyatListesi({ ilkFiyatlar, tedarikciler, ilkTalepler, kalemOner
                   <div className="mb-2 flex flex-wrap items-center gap-3">
                     <span className="font-medium text-brand-dark">{tedarikciAdi(t.tedarikci_id)}</span>
                     <span className={`rozet ${renk}`}>{gun === 0 ? "bugün istendi" : `${gun} gündür bekleniyor`}</span>
+                    {okunanTalep !== t.id && (
+                      <button type="button" className="btn-birincil btn-kucuk" onClick={() => setOkunanTalep(t.id)}>
+                        Cevabı yapıştır
+                      </button>
+                    )}
                     <button type="button" className="ml-auto text-sm text-slate-500 hover:text-brand" onClick={() => kapat(t)}>
                       Talebi kapat
                     </button>
                   </div>
+                  {okunanTalep === t.id && (
+                    <CevapOku
+                      talepId={t.id}
+                      kalemler={kalemler}
+                      kdvOrani={kdvOrani}
+                      kalemOnerileri={kalemOnerileri}
+                      onKaydedildi={fiyatGeldi}
+                      onKapat={() => {
+                        setOkunanTalep(null);
+                        router.refresh();
+                      }}
+                    />
+                  )}
                   <ul className="divide-y divide-cizgi">
                     {kalemler.map((f) => {
                       const cevaplandi = new Date(f.updated_at) >= new Date(t.gonderim_zamani);

@@ -8,6 +8,8 @@ import { PARA_BIRIMLERI } from "@/lib/sabitler";
 import { KDV_DURUMLARI, kalemAnahtari, tedarikciFiyatiOku, type KdvDurumu } from "@/lib/tedarikci";
 import type { FiyatSatiri, TedarikciSatiri } from "@/lib/fiyatExcel";
 import type { TedarikciFiyati } from "@/lib/tipler";
+import { yapilandirilmisOku } from "@/lib/ai";
+import { CEVAP_SISTEM_ISTEMI, CevapSemasi, cevapIstemi, okumayiHizala, type OkunanFiyat } from "@/lib/cevapOkuyucu";
 
 export type Sonuc<T = null> = { hata: string; veri?: undefined } | { hata?: undefined; veri: T };
 export type FormDurumu = { hata: string | null; basari: string | null };
@@ -310,4 +312,41 @@ async function cevaplananTalepleriKapat(fiyatId: string) {
       await supabase.from("fiyat_talepleri").update({ cevap_zamani: new Date().toISOString() }).eq("id", t.id);
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Tedarikçi cevabını yapay zekâyla okuma (kaydetmez; kullanıcı onaylayınca fiyatKaydet çağrılır)
+// ---------------------------------------------------------------------------
+
+export type CevapOkumaSonucu = { satirlar: (OkunanFiyat & { fiyatId: string })[]; digerBilgi: string };
+
+export async function cevabiOku(talepId: string, cevap: string): Promise<Sonuc<CevapOkumaSonucu>> {
+  if (!cevap.trim()) return { hata: "Tedarikçinin cevabını yapıştırın." };
+  if (cevap.length > 20_000) return { hata: "Cevap çok uzun. Sadece fiyatların geçtiği kısmı yapıştırın." };
+  const supabase = sunucuIstemcisi();
+  const { data: talep, error } = await supabase.from("fiyat_talepleri").select("fiyat_idleri").eq("id", talepId).single();
+  if (error || !talep) return { hata: "Talep bulunamadı." };
+  const idler = talep.fiyat_idleri as string[];
+  const { data: kayitlar, error: e2 } = await supabase
+    .from("tedarikci_fiyatlari")
+    .select("id, kalem_adi, aciklama, birim, para_birimi")
+    .in("id", idler);
+  if (e2) return { hata: "Kalemler okunamadı: " + e2.message };
+  // Ekrandaki sırayla aynı olsun
+  const kalemler = idler.map((id) => kayitlar?.find((s) => s.id === id)).filter((s) => s != null);
+  if (kalemler.length === 0) return { hata: "Bu talepte kalem kalmamış." };
+
+  const s = await yapilandirilmisOku({
+    sistem: CEVAP_SISTEM_ISTEMI,
+    icerik: cevapIstemi(kalemler, cevap),
+    sema: CevapSemasi,
+    efor: "low",
+  });
+  if (s.hata !== undefined) return { hata: s.hata };
+  const satirlar = okumayiHizala(
+    kalemler.length,
+    s.veri,
+    kalemler.map((k) => k.para_birimi as "TRY" | "USD" | "EUR"),
+  ).map((o, i) => ({ ...o, fiyatId: kalemler[i].id as string }));
+  return { veri: { satirlar, digerBilgi: s.veri.diger_bilgi.trim() } };
 }

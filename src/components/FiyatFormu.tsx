@@ -5,7 +5,7 @@ import { fiyatYaz } from "@/lib/format";
 import { BIRIMLER, PARA_BIRIMLERI } from "@/lib/sabitler";
 import { KDV_DURUMLARI, tedarikciFiyatiOku, type KdvDurumu } from "@/lib/tedarikci";
 import type { Tedarikci, TedarikciFiyati } from "@/lib/tipler";
-import { fiyatKaydet } from "@/app/(app)/tedarikciler/actions";
+import { fiyatKaydet, type FiyatGirdisi } from "@/app/(app)/tedarikciler/actions";
 
 type Props = {
   /** Düzenlenecek fiyat; boşsa yeni fiyat */
@@ -19,6 +19,8 @@ type Props = {
   /** Cevap girerken kalem adı ve birimi değiştirilmez */
   kalemSabit?: boolean;
   baslik?: string;
+  /** Yapay zekânın okuduğu cevap: alanlar bununla dolu açılır */
+  taslak?: Partial<Pick<FiyatGirdisi, "fiyatMetni" | "para_birimi" | "kdv_durumu" | "termin" | "min_siparis" | "odeme_vadesi" | "notlar">>;
   onKaydedildi: (f: TedarikciFiyati) => void;
   onVazgec: () => void;
 };
@@ -35,6 +37,7 @@ export function FiyatFormu({
   kdvOrani,
   kalemSabit,
   baslik,
+  taslak,
   onKaydedildi,
   onVazgec,
 }: Props) {
@@ -44,13 +47,13 @@ export function FiyatFormu({
   const [aciklama, setAciklama] = useState(ilk?.aciklama ?? "");
   const [birim, setBirim] = useState(ilk?.birim ?? "m");
   // Cevap girerken eski fiyat yazılı gelmez; yeni fiyat yazılır
-  const [fiyatMetni, setFiyatMetni] = useState("");
-  const [paraBirimi, setParaBirimi] = useState<string>(ilk?.para_birimi ?? "TRY");
-  const [kdvDurumu, setKdvDurumu] = useState<KdvDurumu>("haric");
-  const [termin, setTermin] = useState(ilk?.termin ?? "");
-  const [minSiparis, setMinSiparis] = useState(ilk?.min_siparis ?? "");
-  const [vade, setVade] = useState(ilk?.odeme_vadesi ?? "");
-  const [notlar, setNotlar] = useState(ilk?.notlar ?? "");
+  const [fiyatMetni, setFiyatMetni] = useState(taslak?.fiyatMetni ?? "");
+  const [paraBirimi, setParaBirimi] = useState<string>(taslak?.para_birimi ?? ilk?.para_birimi ?? "TRY");
+  const [kdvDurumu, setKdvDurumu] = useState<KdvDurumu>((taslak?.kdv_durumu as KdvDurumu) ?? "haric");
+  const [termin, setTermin] = useState(taslak?.termin || ilk?.termin || "");
+  const [minSiparis, setMinSiparis] = useState(taslak?.min_siparis || ilk?.min_siparis || "");
+  const [vade, setVade] = useState(taslak?.odeme_vadesi || ilk?.odeme_vadesi || "");
+  const [notlar, setNotlar] = useState(taslak?.notlar ?? ilk?.notlar ?? "");
   const [hata, setHata] = useState<string | null>(null);
   const [kaydediliyor, setKaydediliyor] = useState(false);
 

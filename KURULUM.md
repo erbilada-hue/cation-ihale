@@ -36,7 +36,20 @@ Sistemi çalıştırmak için iki ücretsiz hesap gerekir: **Supabase** (veritab
 5. Değişkenleri sonradan değiştirirseniz **Deployments** sekmesinde en üstteki yayının **⋯** menüsünden
    **Redeploy** ile siteyi yeniden yayınlayın; değişiklik ancak o zaman geçerli olur.
 
-## 3. İlk kullanım
+## 3. Yapay zekâ anahtarı
+
+Tedarikçi cevabını okuma ve şartname analizi için gereklidir. Anahtarı kimseyle (sohbette de) paylaşmayın.
+
+1. https://console.anthropic.com adresinde hesap açın. **Billing** sayfasından bakiye yükleyin
+   (bir tedarikçi cevabını okumak birkaç kuruş tutar).
+2. **API Keys → Create Key** ile anahtar oluşturun, ad olarak `cation-ihale` yazın ve anahtarı kopyalayın.
+3. Vercel'de projenin **Settings → Environment Variables** sayfasında yeni değişken ekleyin:
+   - Key: `ANTHROPIC_API_KEY`
+   - Value: kopyaladığınız anahtar
+   - **Sensitive** seçeneği açık kalabilir.
+4. **Deployments** sekmesinde en üstteki yayının **⋯** menüsünden **Redeploy** deyin.
+
+## 4. İlk kullanım
 
 1. Site adresine girip Supabase'de oluşturduğunuz kullanıcıyla giriş yapın.
 2. **Ayarlar** sayfasında firma bilgilerini, IBAN'ı ve logoyu girin. Teklif PDF'inde bunlar görünür.
