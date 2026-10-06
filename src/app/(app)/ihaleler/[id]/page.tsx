@@ -17,8 +17,8 @@ import { MaliyetEditoru } from "./MaliyetEditoru";
 import { IhaleSilButonu } from "./IhaleSilButonu";
 
 export const dynamic = "force-dynamic";
-// Şartname analizi (yapay zekâ) uzun sürebilir
-export const maxDuration = 60;
+// Şartname analizi (yapay zekâ) uzun şartnamelerde bir-iki dakika sürebilir
+export const maxDuration = 300;
 
 export default async function IhaleDetaySayfasi({ params }: { params: { id: string } }) {
   const supabase = sunucuIstemcisi();

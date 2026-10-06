@@ -17,7 +17,7 @@ import { EksikBilgiHatasi, teklifOlustur } from "@/lib/maliyet";
 import { PARA_BIRIMLERI, SEGMENTLER, URUN_GRUPLARI } from "@/lib/sabitler";
 import type { IhaleDosyasi, KalemSablonu, UrunKalemi, UrunKalemli } from "@/lib/tipler";
 import { SARTNAME_KLASORU } from "@/lib/dosya";
-import { belgeyiHazirla } from "@/lib/belgeMetni";
+import { belgeyiHazirlaAsync } from "@/lib/belgeMetni";
 import { yapilandirilmisOku } from "@/lib/ai";
 import { ANALIZ_SISTEM_ISTEMI, AnalizSemasi, analiziEslestir, kutuphaneMetni, type AnalizSonucu } from "@/lib/sartnameAnalizi";
 import { MARJ_SISTEM_ISTEMI, MarjSemasi, marjIstemi, oneriyiDuzelt, type MarjGirdisi, type MarjOnerisi } from "@/lib/marjTavsiyesi";
@@ -425,7 +425,7 @@ export async function sartnameAnalizEt(dosyaId: string): Promise<Sonuc<AnalizSon
   if (!dosya) return { hata: "Dosya bulunamadı." };
   const { data: blob, error } = await supabase.storage.from(SARTNAME_KLASORU).download(dosya.yol);
   if (error || !blob) return { hata: "Dosya indirilemedi: " + (error?.message ?? "") };
-  const hazir = belgeyiHazirla(Buffer.from(await blob.arrayBuffer()), dosya.dosya_adi);
+  const hazir = await belgeyiHazirlaAsync(Buffer.from(await blob.arrayBuffer()), dosya.dosya_adi);
   if (hazir.hata !== undefined) return { hata: hazir.hata };
 
   const [sablonlar, firma] = await Promise.all([kalemSablonlariniGetir(supabase), firmaAyarlariGetir(supabase)]);

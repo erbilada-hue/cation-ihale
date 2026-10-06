@@ -65,7 +65,7 @@ export function SartnameAnalizi({ ihaleId, dosya, sablonlar, segmentler, oncekiS
           })),
         );
       } catch {
-        setHata("Bağlantı hatası. Tekrar deneyin.");
+        setHata("Analiz yarıda kesildi: çok uzun sürdü ya da bağlantı koptu. Tekrar deneyin; yine olursa bana haber verin.");
       } finally {
         setOkunuyor(false);
       }
@@ -131,7 +131,7 @@ export function SartnameAnalizi({ ihaleId, dosya, sablonlar, segmentler, oncekiS
         </button>
       </div>
 
-      {okunuyor && <p className="text-sm text-slate-600">Dosya okunuyor. Uzun şartnamelerde bir dakika kadar sürebilir…</p>}
+      {okunuyor && <p className="text-sm text-slate-600">Dosya okunuyor. Uzun şartnamelerde bir-iki dakika sürebilir; sayfayı kapatmayın…</p>}
       {hata && <p className="text-sm text-red-600">{hata}</p>}
 
       {analiz && (

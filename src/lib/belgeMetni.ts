@@ -3,6 +3,7 @@
 
 import { inflateRawSync } from "node:zlib";
 import * as XLSX from "xlsx";
+import { extractText, getDocumentProxy } from "unpdf";
 
 export type BelgeIcerigi =
   | { tur: "pdf"; base64: string }
@@ -93,6 +94,37 @@ function odtMetni(xml: string): string {
 }
 
 export type BelgeSonucu = { hata: string; icerik?: undefined } | { hata?: undefined; icerik: BelgeIcerigi };
+
+/** Sayfa başına ortalama bu kadar harften az yazı varsa PDF taranmış sayılır ve görüntü olarak gönderilir */
+const TARANMIS_SINIRI = 200;
+
+/**
+ * PDF'in yazı katmanı varsa metni çıkarır (çok daha hızlı ve ucuz okunur); taranmış PDF'te null döner.
+ * Sayfa numaraları korunur ki yapay zekâ "Ek-16" gibi atıfları bulabilsin.
+ */
+export async function pdfMetni(veri: Buffer): Promise<string | null> {
+  try {
+    const pdf = await getDocumentProxy(new Uint8Array(veri));
+    const { totalPages, text } = await extractText(pdf, { mergePages: false });
+    const toplam = text.reduce((t, s) => t + s.trim().length, 0);
+    if (totalPages === 0 || toplam / totalPages < TARANMIS_SINIRI) return null;
+    return text.map((s, i) => `--- Sayfa ${i + 1} ---\n${s.trim()}`).join("\n\n");
+  } catch {
+    return null;
+  }
+}
+
+/** PDF'i önce metin olarak okumayı dener; olmazsa görüntü olarak gönderir. Diğer türler belgeyiHazirla ile. */
+export async function belgeyiHazirlaAsync(veri: Buffer, dosyaAdi: string): Promise<BelgeSonucu> {
+  if (uzanti(dosyaAdi) === "pdf") {
+    const metin = await pdfMetni(veri);
+    if (metin) {
+      if (metin.length > EN_UZUN_METIN) return { hata: "Dosya çok uzun. Sadece teknik şartname bölümünü ayrı dosya yapıp yükleyin." };
+      return { icerik: { tur: "metin", metin } };
+    }
+  }
+  return belgeyiHazirla(veri, dosyaAdi);
+}
 
 export function belgeyiHazirla(veri: Buffer, dosyaAdi: string): BelgeSonucu {
   const u = uzanti(dosyaAdi);
