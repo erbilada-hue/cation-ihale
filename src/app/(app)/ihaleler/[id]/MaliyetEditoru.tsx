@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { hesaplaUrun, kalemTutari } from "@/lib/maliyet";
 import { kalemGirdisi, maliyetGirdisi, type Kurlar } from "@/lib/maliyetGirdisi";
 import { adetYaz, paraYaz, tarihYaz } from "@/lib/format";
-import { BIRIMLER, PARA_BIRIMLERI, URUN_GRUPLARI, urunGrubuAdi } from "@/lib/sabitler";
+import { BIRIMLER, HAZIR_URUN, PARA_BIRIMLERI, URUN_GRUPLARI, urunGrubuAdi } from "@/lib/sabitler";
 import { useKayit } from "@/lib/useKayit";
 import { SayiGirdisi } from "@/components/SayiGirdisi";
 import { SartnameDosyalari } from "@/components/SartnameDosyalari";
@@ -467,6 +467,12 @@ function UrunKarti({
 
       <div className="grid grid-cols-[minmax(0,1fr)_320px]">
         <div className="border-r border-cizgi p-6">
+          {urun.urun_grubu === HAZIR_URUN && (
+            <p className="mb-4 rounded-lg bg-zemin px-3 py-2 text-xs text-slate-600">
+              Hazır ürün: ilk satıra tedarikçiden <strong>1 adet alış fiyatını</strong> girin ya da fiyat listesinden seçin.
+              Logo baskı, ambalaj veya nakliye varsa kalem olarak ekleyin.
+            </p>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[600px] text-sm">
               <thead className="text-left text-xs text-slate-500">
@@ -705,7 +711,11 @@ function UrunKarti({
               onChange={(e) => onUrun({ kar_marji: Number(e.target.value) })}
               className={`mt-2 w-full accent-brand ${urun.kar_marji == null ? "opacity-40" : ""}`}
             />
-            {urun.kar_marji == null && <p className="text-xs text-amber-700">Kâr marjını girin.</p>}
+            {urun.kar_marji == null && (
+              <p className="text-xs text-amber-700">
+                Kâr marjını girin.{urun.urun_grubu === HAZIR_URUN && " Hazır üründe genelde %15–30 arası."}
+              </p>
+            )}
             <MarjOnerisiKutusu
               urunId={urun.id}
               hamMaliyet={b.ham}
@@ -948,7 +958,7 @@ function UrunEkleFormu({
       </div>
       <div className="min-w-48 flex-1">
         <label className="etiket" htmlFor="yeni-ad">Ürün adı</label>
-        <input id="yeni-ad" value={ad} onChange={(e) => setAd(e.target.value)} className="girdi" placeholder="Örn. Kışlık mont, lacivert" />
+        <input id="yeni-ad" value={ad} onChange={(e) => setAd(e.target.value)} className="girdi" placeholder={grup === HAZIR_URUN ? "Örn. Deri kemer, siyah" : "Örn. Kışlık mont, lacivert"} />
       </div>
       <div className="w-32">
         <label className="etiket">Adet</label>

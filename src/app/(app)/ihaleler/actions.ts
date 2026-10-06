@@ -14,7 +14,7 @@ import {
   urunuDuzelt,
 } from "@/lib/veri";
 import { EksikBilgiHatasi, teklifOlustur } from "@/lib/maliyet";
-import { PARA_BIRIMLERI, SEGMENTLER, URUN_GRUPLARI } from "@/lib/sabitler";
+import { HAZIR_URUN, PARA_BIRIMLERI, SEGMENTLER, URUN_GRUPLARI } from "@/lib/sabitler";
 import type { IhaleDosyasi, KalemSablonu, UrunKalemi, UrunKalemli } from "@/lib/tipler";
 import { SARTNAME_KLASORU } from "@/lib/dosya";
 import { belgeyiHazirlaAsync } from "@/lib/belgeMetni";
@@ -158,9 +158,11 @@ export async function urunEkle(
   const ihale = await ihaleGetir(supabase, ihaleId);
   if (!ihale) return { hata: "İhale bulunamadı." };
 
-  // Fire: segment seçildiyse segment şablonundan gelir, şartnamede kullanıcı girer
-  let fire: number | null = null;
-  if (ihale.segment) {
+  const hazir = girdi.urun_grubu === HAZIR_URUN;
+  // Fire: segment seçildiyse segment şablonundan gelir, şartnamede kullanıcı girer.
+  // Hazır alınan üründe üretim firesi olmaz, 0 başlar (kullanıcı değiştirebilir).
+  let fire: number | null = hazir ? 0 : null;
+  if (ihale.segment && !hazir) {
     const { data } = await supabase
       .from("segment_sablonlari")
       .select("fire_orani")
@@ -201,22 +203,33 @@ export async function urunEkle(
     .order("sira")
     .order("ad");
 
+  const yeniKalemler = ((sablonlar ?? []) as KalemSablonu[]).map((s) => ({
+    urun_id: urun.id,
+    sablon_id: s.id as string | null,
+    ad: s.ad,
+    zorunlu: true,
+    birim: s.birim,
+    kullanim: s.varsayilan_kullanim,
+    birim_fiyat: s.varsayilan_birim_fiyat,
+  }));
+  // Hazır üründe ana kalem ürünün kendisidir: adı fiyat listesindeki ürünle eşleşsin diye ürün adı verilir
+  if (hazir) {
+    yeniKalemler.unshift({
+      urun_id: urun.id,
+      sablon_id: null,
+      ad: girdi.ad.trim(),
+      zorunlu: true,
+      birim: "adet",
+      kullanim: 1,
+      birim_fiyat: null,
+    });
+  }
+
   let kalemler: UrunKalemi[] = [];
-  if (sablonlar && sablonlar.length > 0) {
+  if (yeniKalemler.length > 0) {
     const { data, error: kalemHatasi } = await supabase
       .from("urun_kalemleri")
-      .insert(
-        (sablonlar as KalemSablonu[]).map((s, i) => ({
-          urun_id: urun.id,
-          sablon_id: s.id,
-          ad: s.ad,
-          zorunlu: true,
-          birim: s.birim,
-          kullanim: s.varsayilan_kullanim,
-          birim_fiyat: s.varsayilan_birim_fiyat,
-          sira: i,
-        })),
-      )
+      .insert(yeniKalemler.map((k, i) => ({ ...k, sira: i })))
       .select("*");
     if (kalemHatasi) return { hata: "Zorunlu kalemler eklenemedi: " + kalemHatasi.message };
     kalemler = data as UrunKalemi[];

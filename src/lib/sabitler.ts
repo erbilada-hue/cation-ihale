@@ -6,7 +6,11 @@ export const URUN_GRUPLARI = [
   { kod: "tulum_onluk", ad: "Tulum-Önlük" },
   { kod: "polar_yelek_yagmurluk", ad: "Polar-Yelek-Yağmurluk" },
   { kod: "sapka_bere_corap", ad: "Şapka-Bere-Çorap" },
+  { kod: "hazir_urun", ad: "Hazır Ürün (al-sat)" },
 ] as const;
+
+/** Tedarikçiden hazır alınıp üzerine kâr konarak satılan ürünler (kemer, havlu, eldiven, kravat…) */
+export const HAZIR_URUN = "hazir_urun";
 
 export type UrunGrubuKod = (typeof URUN_GRUPLARI)[number]["kod"];
 

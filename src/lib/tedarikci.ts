@@ -13,6 +13,7 @@ export const TEDARIKCI_KATEGORILERI = [
   "Aksesuar",
   "Fason",
   "Baskı-Nakış",
+  "Hazır ürün",
   "Ambalaj",
   "Nakliye",
   "Diğer",
