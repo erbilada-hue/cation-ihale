@@ -191,6 +191,11 @@ const KALEM_AILELERI: [aile: string, kelimeler: string[]][] = [
   ["biye", ["biye", "serit", "grogren"]],
   ["ambalaj", ["ambalaj", "poset", "koli"]],
   ["nakliye", ["nakliye", "sevkiyat"]],
+  // Kumaşlar: "Kapitone astar", "Cep astarı" astar ailesinde; "Polar (yaka/astar)" kumaş ailesinde
+  ["elyaf", ["elyaf", "dolgu", "vatka"]],
+  ["tela", ["tela"]],
+  ["kumas", ["kumas", "polar", "mesh", "cordura"]],
+  ["astar", ["astar", "kapitone"]],
 ];
 
 export function kalemAilesi(ad: string): string | null {

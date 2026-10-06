@@ -118,12 +118,23 @@ describe("kalem aileleri", () => {
     expect(kalemleEslesir("Toka", "Metal / Plastik aksesuar")).toBe(true);
   });
 
+  it("kumaşları kumaş, astarları astar kalemleriyle eşleştirir", () => {
+    expect(kalemleEslesir("Ana kumaş", "Dış kumaş")).toBe(true);
+    expect(kalemleEslesir("Ana kumaş", "Kapüşon kumaşı")).toBe(true);
+    expect(kalemleEslesir("Polar kumaş", "Polar (yaka/astar)")).toBe(true);
+    expect(kalemleEslesir("File / Mesh", "Mesh / File panel")).toBe(true);
+    expect(kalemleEslesir("Astar", "Cep astarı")).toBe(true);
+    expect(kalemleEslesir("Kapitone astar", "Kapitone astar")).toBe(true);
+    expect(kalemleEslesir("Elyaf / Dolgu", "Elyaf / Dolgu")).toBe(true);
+    expect(kalemleEslesir("Astar", "Dış kumaş")).toBe(false);
+    expect(kalemleEslesir("Tela", "Ana kumaş")).toBe(false);
+    expect(kalemAilesi("Dikiş ipliği")).toBeNull();
+  });
+
   it("farklı aileleri karıştırmaz", () => {
     expect(kalemleEslesir("Baskılı etiket / yıkama talimatı", "Logo baskı")).toBe(false);
     expect(kalemleEslesir("Reflektör bant", "Velkro / Cırt bant")).toBe(false);
     expect(kalemleEslesir("Fermuar", "Ana kumaş")).toBe(false);
-    expect(kalemleEslesir("Ana kumaş", "Astar kumaş")).toBe(false);
-    expect(kalemAilesi("Ana kumaş")).toBeNull();
   });
 
   it("otomatik doldurma sadece aynı adlı ve aynı ürünü anlatan fiyatlardan seçer", () => {
