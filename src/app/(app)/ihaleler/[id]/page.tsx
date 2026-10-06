@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
 import {
   dosyalariGetir,
+  fiyatListesiniGetir,
   ihaleGetir,
   ihaleKurlari,
   kalemSablonlariniGetir,
@@ -22,12 +23,13 @@ export default async function IhaleDetaySayfasi({ params }: { params: { id: stri
   const ihale = await ihaleGetir(supabase, params.id);
   if (!ihale) notFound();
 
-  const [urunler, sablonlar, segmentler, teklifler, dosyalar] = await Promise.all([
+  const [urunler, sablonlar, segmentler, teklifler, dosyalar, fiyatListesi] = await Promise.all([
     urunleriGetir(supabase, ihale.id),
     kalemSablonlariniGetir(supabase),
     segmentleriGetir(supabase),
     teklifleriGetir(supabase, ihale.id),
     dosyalariGetir(supabase, ihale.id),
+    fiyatListesiniGetir(supabase),
   ]);
   const segment = segmentler.find((s) => s.segment === ihale.segment);
 
@@ -87,6 +89,7 @@ export default async function IhaleDetaySayfasi({ params }: { params: { id: stri
         sablonlar={sablonlar}
         teklifler={teklifler}
         dosyalar={dosyalar}
+        fiyatListesi={fiyatListesi}
       />
     </div>
   );

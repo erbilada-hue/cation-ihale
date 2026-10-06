@@ -51,10 +51,13 @@ export function IcMaliyetRaporuPdf({
   ihale,
   urunler,
   segment,
+  tedarikciAdlari = {},
 }: {
   ihale: Ihale;
   urunler: UrunKalemli[];
   segment: SegmentSablonu | undefined;
+  /** Kalem fiyatı fiyat listesinden seçildiyse: tedarikçi fiyat id → tedarikçi adı */
+  tedarikciAdlari?: Record<string, string>;
 }) {
   const kurlar = ihaleKurlari(ihale);
   const hesaplar = urunler.map((u) => ({ u, h: hesaplaUrun(maliyetGirdisi(u, kurlar)) }));
@@ -113,6 +116,9 @@ export function IcMaliyetRaporuPdf({
                   <Text style={s.kalem}>
                     {k.ad}
                     {eksikKalem ? <Text style={{ color: RENK.kirmizi }}> (eksik)</Text> : null}
+                    {k.tedarikci_fiyat_id && tedarikciAdlari[k.tedarikci_fiyat_id] ? (
+                      <Text style={o.gri}> · {tedarikciAdlari[k.tedarikci_fiyat_id]}</Text>
+                    ) : null}
                   </Text>
                   <Text style={s.birim}>{k.birim}</Text>
                   <Text style={[s.sayi, o.rakam]}>{sayiYaz(k.kullanim) || "—"}</Text>

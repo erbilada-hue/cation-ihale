@@ -26,6 +26,11 @@ export function fiyatYaz(n: number | null | undefined, paraBirimi: string): stri
   return tl.format(n);
 }
 
+/** Sayıyı Türkçe yazımla kuruş hassasiyetinde gösterir: 1,2 → "1,20" değil "1,2"; 137,5 → "137,5" */
+export function kurusaYuvarlaGoster(n: number): string {
+  return new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 }).format(n);
+}
+
 /** 1.234,5 */
 export function sayiYaz(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return "";

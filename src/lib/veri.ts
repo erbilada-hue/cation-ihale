@@ -4,7 +4,11 @@ import type {
   KalemSablonu,
   SegmentSablonu,
   Teklif,
+  FiyatTalebi,
   IhaleDosyasi,
+  Tedarikci,
+  TedarikciFiyati,
+  TedarikciFiyatiAdli,
   UrunKalemli,
   UrunKalemi,
 } from "./tipler";
@@ -17,7 +21,13 @@ type Supabase = ReturnType<typeof sunucuIstemcisi>;
 const sayi = (v: unknown): number | null => (v == null ? null : Number(v));
 
 export function kalemiDuzelt(k: UrunKalemi): UrunKalemi {
-  return { ...k, kullanim: sayi(k.kullanim), birim_fiyat: sayi(k.birim_fiyat), para_birimi: k.para_birimi ?? "TRY" };
+  return {
+    ...k,
+    kullanim: sayi(k.kullanim),
+    birim_fiyat: sayi(k.birim_fiyat),
+    para_birimi: k.para_birimi ?? "TRY",
+    tedarikci_fiyat_id: k.tedarikci_fiyat_id ?? null,
+  };
 }
 
 export function urunuDuzelt(u: UrunKalemli): UrunKalemli {
@@ -102,4 +112,38 @@ export async function dosyalariGetir(supabase: Supabase, ihaleId: string) {
     .eq("ihale_id", ihaleId)
     .order("created_at");
   return ((data ?? []) as IhaleDosyasi[]).map((d) => ({ ...d, boyut: Number(d.boyut) }));
+}
+
+export async function tedarikcileriGetir(supabase: Supabase) {
+  const { data } = await supabase.from("tedarikciler").select("*").order("ad");
+  return (data ?? []) as Tedarikci[];
+}
+
+function fiyatiDuzelt<T extends TedarikciFiyati>(f: T): T {
+  return { ...f, fiyat: Number(f.fiyat) };
+}
+
+/** Tüm fiyat listesi, tedarikçi adıyla */
+export async function fiyatListesiniGetir(supabase: Supabase, tedarikciId?: string) {
+  // Supabase bir seferde en fazla 1000 satır döndürür; liste daha uzun olabilir
+  const data: unknown[] = [];
+  for (let bas = 0; ; bas += 1000) {
+    let sorgu = supabase.from("tedarikci_fiyatlari").select("*, tedarikciler(ad)").order("kalem_adi").order("id");
+    if (tedarikciId) sorgu = sorgu.eq("tedarikci_id", tedarikciId);
+    const { data: sayfa } = await sorgu.range(bas, bas + 999);
+    data.push(...(sayfa ?? []));
+    if (!sayfa || sayfa.length < 1000) break;
+  }
+  return (data as (TedarikciFiyati & { tedarikciler: { ad: string } | null })[]).map(
+    ({ tedarikciler, ...f }): TedarikciFiyatiAdli => fiyatiDuzelt({ ...f, tedarikci_adi: tedarikciler?.ad ?? "" }),
+  );
+}
+
+export async function bekleyenTalepleriGetir(supabase: Supabase) {
+  const { data } = await supabase
+    .from("fiyat_talepleri")
+    .select("*")
+    .is("cevap_zamani", null)
+    .order("gonderim_zamani");
+  return (data ?? []) as FiyatTalebi[];
 }

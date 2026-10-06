@@ -11,7 +11,8 @@ Sistemi çalıştırmak için iki ücretsiz hesap gerekir: **Supabase** (veritab
 3. Bu depodaki `supabase/migrations/20261005000000_faz1_temel.sql` dosyasının tamamını kopyalayıp yapıştırın ve **Run**'a basın.
    "Success" görünmeli. Bu adım tabloları ve segment şablonlarını oluşturur.
    Ardından `supabase/migrations` klasöründeki diğer dosyaları da tarih sırasıyla aynı şekilde çalıştırın
-   (şu an: `20261006000000_faz1_doviz_sartname_fason.sql`: döviz, şartname dosyaları, fason ayrımı).
+   (şu an: `20261006000000_faz1_doviz_sartname_fason.sql`: döviz, şartname dosyaları, fason ayrımı;
+   `20261007000000_faz2_tedarikci.sql`: tedarikçiler, fiyat listesi, fiyat talepleri).
 4. **Authentication → Sign In / Providers** sayfasında **Allow new users to sign up** ayarını kapatın.
    Böylece sadece sizin davet ettiğiniz kişiler girebilir.
 5. **Authentication → Users → Add user → Send invitation** ile ekip arkadaşlarınızı e-postalarıyla davet edin
