@@ -1,7 +1,7 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { hesaplaUrun, kalemTutari } from "@/lib/maliyet";
-import { maliyetGirdisi } from "@/lib/maliyetGirdisi";
-import { adetYaz, paraYaz, sayiYaz, tarihYaz, yuzdeYaz } from "@/lib/format";
+import { ihaleKurlari, kalemGirdisi, maliyetGirdisi } from "@/lib/maliyetGirdisi";
+import { adetYaz, fiyatYaz, paraYaz, sayiYaz, tarihYaz, yuzdeYaz } from "@/lib/format";
 import { urunGrubuAdi } from "@/lib/sabitler";
 import type { Ihale, SegmentSablonu, UrunKalemli } from "@/lib/tipler";
 import { RENK, ortakStil as o } from "./ortak";
@@ -56,7 +56,13 @@ export function IcMaliyetRaporuPdf({
   urunler: UrunKalemli[];
   segment: SegmentSablonu | undefined;
 }) {
-  const hesaplar = urunler.map((u) => ({ u, h: hesaplaUrun(maliyetGirdisi(u)) }));
+  const kurlar = ihaleKurlari(ihale);
+  const hesaplar = urunler.map((u) => ({ u, h: hesaplaUrun(maliyetGirdisi(u, kurlar)) }));
+  const dovizli = new Set(urunler.flatMap((u) => u.urun_kalemleri.map((k) => k.para_birimi)));
+  const kurMetni = (["USD", "EUR"] as const)
+    .filter((p) => dovizli.has(p))
+    .map((p) => `1 ${p === "USD" ? "$" : "€"} = ${kurlar[p] == null ? "girilmedi" : paraYaz(kurlar[p])}`)
+    .join(" · ");
   const toplam = hesaplar.reduce(
     (t, { h }) => ({
       ham: t.ham + h.toplam.ham,
@@ -79,6 +85,7 @@ export function IcMaliyetRaporuPdf({
         <Text style={s.alt}>
           {ihale.ad} · {ihale.musteri || "Müşteri girilmedi"} · {kaynak}
           {ihale.kaynak_dosya ? ` · ${ihale.kaynak_dosya}` : ""} · Rapor tarihi {tarihYaz(new Date())}
+          {kurMetni ? ` · Kur: ${kurMetni}` : ""}
         </Text>
 
         {hesaplar.map(({ u, h }) => (
@@ -94,12 +101,13 @@ export function IcMaliyetRaporuPdf({
               <Text style={s.birim}>Birim</Text>
               <Text style={s.sayi}>Kullanım</Text>
               <Text style={s.para}>Birim fiyat</Text>
-              <Text style={s.para}>1 adet</Text>
-              <Text style={s.para}>Toplam</Text>
+              <Text style={s.para}>1 adet (₺)</Text>
+              <Text style={s.para}>Toplam (₺)</Text>
             </View>
             {u.urun_kalemleri.map((k) => {
-              const tutar = kalemTutari({ kullanim: k.kullanim, birimFiyat: k.birim_fiyat });
-              const eksikKalem = k.kullanim == null || k.birim_fiyat == null;
+              const girdi = kalemGirdisi(k, kurlar);
+              const tutar = kalemTutari(girdi);
+              const eksikKalem = k.kullanim == null || k.birim_fiyat == null || girdi.kur == null;
               return (
                 <View key={k.id} style={s.satir}>
                   <Text style={s.kalem}>
@@ -108,7 +116,7 @@ export function IcMaliyetRaporuPdf({
                   </Text>
                   <Text style={s.birim}>{k.birim}</Text>
                   <Text style={[s.sayi, o.rakam]}>{sayiYaz(k.kullanim) || "—"}</Text>
-                  <Text style={[s.para, o.rakam]}>{paraYaz(k.birim_fiyat)}</Text>
+                  <Text style={[s.para, o.rakam]}>{fiyatYaz(k.birim_fiyat, k.para_birimi)}</Text>
                   <Text style={[s.para, o.rakam]}>{paraYaz(tutar)}</Text>
                   <Text style={[s.para, o.rakam]}>{paraYaz(tutar * u.adet)}</Text>
                 </View>
@@ -150,7 +158,7 @@ export function IcMaliyetRaporuPdf({
           </View>
           {eksik ? (
             <Text style={{ color: RENK.kirmizi, marginTop: 4 }}>
-              Bazı ürünlerde fire oranı veya kâr marjı girilmediği için teklif toplamları hesaplanmadı.
+              Bazı ürünlerde fire oranı, kâr marjı veya döviz kuru girilmediği için teklif toplamları hesaplanmadı.
             </Text>
           ) : null}
         </View>

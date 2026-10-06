@@ -98,4 +98,25 @@ describe("sayfalariCoz", () => {
     expect(satirlar).toEqual([]);
     expect(hatalar).toHaveLength(2);
   });
+
+  it("fason kalemini kesim, dikim, ütü-paket olarak ayırır", () => {
+    const { satirlar } = sayfalariCoz([
+      {
+        ad: "MONT-KABAN",
+        satirlar: [
+          ["Kalem Adı", "Kategori", "Zorunlu/Opsiyonel", "Varsayılan Birim", "Tipik Kullanım"],
+          ["Fason (kesim+dikim+ütü)", "İşçilik", "ZORUNLU", "adet", 1],
+          ["Nakış", "Süsleme", "OPSİYONEL", "adet", 1],
+        ],
+      },
+      { ad: "SAPKA-BERE-CORAP", satirlar: [["Kalem Adı", "Zorunlu/Opsiyonel"], ["Fason / Üretim", "ZORUNLU"]] },
+    ]);
+    expect(satirlar.map((s) => [s.ad, s.zorunlu])).toEqual([
+      ["Fason – Kesim", true],
+      ["Fason – Dikim", true],
+      ["Fason – Ütü ve paket", true],
+      ["Nakış", false],
+      ["Fason / Üretim", true],
+    ]);
+  });
 });

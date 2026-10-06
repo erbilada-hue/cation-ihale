@@ -3,7 +3,7 @@ import { sunucuIstemcisi } from "@/lib/supabase/server";
 import { firmaAyarlariGetir, ihaleGetir } from "@/lib/veri";
 import { fontlariKaydet } from "@/pdf/ortak";
 import { MusteriTeklifiPdf } from "@/pdf/MusteriTeklifi";
-import { pdfYaniti } from "@/pdf/yanit";
+import { pdfHatasi, pdfYaniti } from "@/pdf/yanit";
 import type { Teklif } from "@/lib/tipler";
 
 export const runtime = "nodejs";
@@ -23,7 +23,11 @@ export async function GET(_istek: Request, { params }: { params: { teklifId: str
   const [ihale, firma] = await Promise.all([ihaleGetir(supabase, teklif.ihale_id), firmaAyarlariGetir(supabase)]);
   if (!ihale) return new Response("İhale bulunamadı.", { status: 404 });
 
-  fontlariKaydet();
-  const pdf = await renderToBuffer(<MusteriTeklifiPdf teklif={teklif} ihale={ihale} firma={firma} />);
-  return pdfYaniti(pdf, `Teklif-${teklif.teklif_no}.pdf`);
+  try {
+    fontlariKaydet();
+    const pdf = await renderToBuffer(<MusteriTeklifiPdf teklif={teklif} ihale={ihale} firma={firma} />);
+    return pdfYaniti(pdf, `Teklif-${teklif.teklif_no}.pdf`);
+  } catch (e) {
+    return pdfHatasi(e);
+  }
 }

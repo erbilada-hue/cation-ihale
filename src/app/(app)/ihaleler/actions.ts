@@ -3,10 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
-import { firmaAyarlariGetir, ihaleGetir, kalemiDuzelt, maliyetGirdisi, urunleriGetir, urunuDuzelt } from "@/lib/veri";
+import {
+  firmaAyarlariGetir,
+  ihaleGetir,
+  ihaleKurlari,
+  kalemiDuzelt,
+  maliyetGirdisi,
+  urunleriGetir,
+  urunuDuzelt,
+} from "@/lib/veri";
 import { EksikBilgiHatasi, teklifOlustur } from "@/lib/maliyet";
-import { SEGMENTLER, URUN_GRUPLARI } from "@/lib/sabitler";
-import type { KalemSablonu, UrunKalemi, UrunKalemli } from "@/lib/tipler";
+import { PARA_BIRIMLERI, SEGMENTLER, URUN_GRUPLARI } from "@/lib/sabitler";
+import type { IhaleDosyasi, KalemSablonu, UrunKalemi, UrunKalemli } from "@/lib/tipler";
+import { SARTNAME_KLASORU } from "@/lib/dosya";
 
 export type Sonuc<T = null> = { hata: string; veri?: undefined } | { hata?: undefined; veri: T };
 
@@ -60,10 +69,35 @@ export async function ihaleKaydet(_onceki: IhaleFormDurumu, form: FormData): Pro
 
 export async function ihaleSil(id: string): Promise<Sonuc> {
   const supabase = sunucuIstemcisi();
+  // Şartname dosyaları da depodan silinir
+  const { data: dosyalar } = await supabase.from("ihale_dosyalari").select("yol").eq("ihale_id", id);
+  if (dosyalar && dosyalar.length > 0) {
+    await supabase.storage.from(SARTNAME_KLASORU).remove(dosyalar.map((d) => d.yol as string));
+  }
   const { error } = await supabase.from("ihaleler").delete().eq("id", id);
   if (error) return { hata: "İhale silinemedi: " + error.message };
   revalidatePath("/ihaleler");
   redirect("/ihaleler");
+}
+
+/** İhalede dolar / euro kuru. Boş bırakılabilir; dövizli kalem varsa teklif için gerekir. */
+export async function ihaleKurGuncelle(
+  ihaleId: string,
+  degisiklik: { usd_kuru?: number | null; eur_kuru?: number | null },
+): Promise<Sonuc> {
+  const temiz: Record<string, number | null> = {};
+  for (const alan of ["usd_kuru", "eur_kuru"] as const) {
+    if (!(alan in degisiklik)) continue;
+    const kur = degisiklik[alan] ?? null;
+    if (kur != null && (!(kur > 0) || kur >= 1000)) {
+      return { hata: "Kur 0 ile 1.000 arasında olmalı. Ondalık için virgül kullanın (örn. 41,25)." };
+    }
+    temiz[alan] = kur;
+  }
+  const supabase = sunucuIstemcisi();
+  const { error } = await supabase.from("ihaleler").update(temiz).eq("id", ihaleId);
+  if (error) return { hata: "Kur kaydedilemedi: " + error.message };
+  return { veri: null };
 }
 
 // ---------------------------------------------------------------------------
@@ -228,7 +262,7 @@ export async function kalemEkle(
   return { veri: kalemiDuzelt(data as UrunKalemi) };
 }
 
-const KALEM_ALANLARI = ["ad", "birim", "kullanim", "birim_fiyat"] as const;
+const KALEM_ALANLARI = ["ad", "birim", "kullanim", "birim_fiyat", "para_birimi"] as const;
 type KalemAlani = (typeof KALEM_ALANLARI)[number];
 
 export async function kalemGuncelle(
@@ -239,6 +273,9 @@ export async function kalemGuncelle(
     Object.entries(degisiklik).filter(([k]) => (KALEM_ALANLARI as readonly string[]).includes(k)),
   );
   if ("ad" in temiz && !String(temiz.ad ?? "").trim()) return { hata: "Kalem adı boş olamaz." };
+  if ("para_birimi" in temiz && !PARA_BIRIMLERI.some((p) => p.kod === temiz.para_birimi)) {
+    return { hata: "Para birimi TL, dolar veya euro olmalı." };
+  }
   for (const alan of ["kullanim", "birim_fiyat"] as const) {
     if (alan in temiz && temiz[alan] != null && Number(temiz[alan]) < 0) {
       return { hata: "Kullanım ve birim fiyat negatif olamaz." };
@@ -270,7 +307,7 @@ export async function musteriTeklifiOlustur(ihaleId: string): Promise<Sonuc<{ te
   let ozet;
   try {
     ozet = teklifOlustur(
-      urunler.map((u) => ({ ...maliyetGirdisi(u), ad: u.ad, aciklama: u.aciklama })),
+      urunler.map((u) => ({ ...maliyetGirdisi(u, ihaleKurlari(ihale)), ad: u.ad, aciklama: u.aciklama })),
     );
   } catch (e) {
     if (e instanceof EksikBilgiHatasi) return { hata: e.message };
@@ -302,6 +339,61 @@ export async function musteriTeklifiOlustur(ihaleId: string): Promise<Sonuc<{ te
   revalidatePath(`/ihaleler/${ihaleId}`);
   revalidatePath("/ihaleler");
   return { veri: { teklifId: data.id } };
+}
+
+// ---------------------------------------------------------------------------
+// Şartname dosyaları (dosyanın kendisini tarayıcı doğrudan depoya yükler)
+// ---------------------------------------------------------------------------
+
+export async function dosyaKaydet(girdi: {
+  ihaleId: string;
+  urunId: string | null;
+  dosyaAdi: string;
+  yol: string;
+  boyut: number;
+  tur: string;
+}): Promise<Sonuc<IhaleDosyasi>> {
+  if (!girdi.yol.startsWith(`${girdi.ihaleId}/`)) return { hata: "Dosya yolu geçersiz." };
+  const supabase = sunucuIstemcisi();
+  const { data, error } = await supabase
+    .from("ihale_dosyalari")
+    .insert({
+      ihale_id: girdi.ihaleId,
+      urun_id: girdi.urunId,
+      dosya_adi: girdi.dosyaAdi,
+      yol: girdi.yol,
+      boyut: girdi.boyut,
+      tur: girdi.tur,
+    })
+    .select("*")
+    .single();
+  if (error) {
+    await supabase.storage.from(SARTNAME_KLASORU).remove([girdi.yol]);
+    return { hata: "Dosya kaydedilemedi: " + error.message };
+  }
+
+  // İhalenin ilk şartname dosyası, maliyet tablosundaki kaynak göstergesinde görünür
+  if (!girdi.urunId) {
+    const ihale = await ihaleGetir(supabase, girdi.ihaleId);
+    if (ihale && ihale.kaynak === "sartname" && !ihale.kaynak_dosya) {
+      await supabase.from("ihaleler").update({ kaynak_dosya: girdi.dosyaAdi }).eq("id", girdi.ihaleId);
+    }
+  }
+  revalidatePath(`/ihaleler/${girdi.ihaleId}`);
+  return { veri: { ...(data as IhaleDosyasi), boyut: Number(data.boyut) } };
+}
+
+export async function dosyaSil(dosyaId: string): Promise<Sonuc> {
+  const supabase = sunucuIstemcisi();
+  const { data } = await supabase.from("ihale_dosyalari").select("*").eq("id", dosyaId).maybeSingle();
+  const dosya = data as IhaleDosyasi | null;
+  if (!dosya) return { hata: "Dosya bulunamadı." };
+  const { error: depoHatasi } = await supabase.storage.from(SARTNAME_KLASORU).remove([dosya.yol]);
+  if (depoHatasi) return { hata: "Dosya silinemedi: " + depoHatasi.message };
+  const { error } = await supabase.from("ihale_dosyalari").delete().eq("id", dosyaId);
+  if (error) return { hata: "Dosya silinemedi: " + error.message };
+  revalidatePath(`/ihaleler/${dosya.ihale_id}`);
+  return { veri: null };
 }
 
 // Türkiye saatine göre YYYY-MM-DD

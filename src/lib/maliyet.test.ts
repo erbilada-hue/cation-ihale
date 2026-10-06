@@ -118,3 +118,28 @@ describe("teklifOlustur", () => {
     );
   });
 });
+
+describe("döviz", () => {
+  it("dolar/euro kalemleri kurla TL'ye çevirir", () => {
+    const s = hesaplaUrun({
+      ...tisort,
+      kalemler: [
+        { kullanim: 0.5, birimFiyat: 3, kur: 40 }, // 3 $ × 40 = 120 ₺ → 60
+        { kullanim: 1, birimFiyat: 25, kur: 1 },
+        { kullanim: 1, birimFiyat: 15 },
+      ],
+    });
+    expect(s.birim.ham).toBeCloseTo(100);
+    expect(s.birim.teklif).toBeCloseTo(126);
+    expect(s.kurEksikKalemSayisi).toBe(0);
+  });
+
+  it("kur girilmemişse teklif fiyatı hesaplanmaz ve teklif oluşturulmaz", () => {
+    const urun = { ...tisort, kalemler: [{ kullanim: 1, birimFiyat: 3, kur: null }, ...tisort.kalemler] };
+    const s = hesaplaUrun(urun);
+    expect(s.kurEksikKalemSayisi).toBe(1);
+    expect(s.birim.ham).toBeCloseTo(100);
+    expect(s.birim.teklif).toBeNull();
+    expect(() => teklifOlustur([{ ...urun, ad: "Tişört" }])).toThrow(/döviz kuru/);
+  });
+});
