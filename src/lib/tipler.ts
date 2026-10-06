@@ -48,6 +48,8 @@ export type Ihale = {
   kaynak: "sartname" | "segment";
   kaynak_dosya: string;
   segment: "premium" | "standart" | "ekonomik" | null;
+  usd_kuru: number | null;
+  eur_kuru: number | null;
   asama: string;
   notlar: string;
   created_at: string;
@@ -76,6 +78,7 @@ export type UrunKalemi = {
   birim: string;
   kullanim: number | null;
   birim_fiyat: number | null;
+  para_birimi: "TRY" | "USD" | "EUR";
   sira: number;
 };
 
@@ -88,5 +91,16 @@ export type Teklif = {
   teklif_tarihi: string;
   gecerlilik_tarihi: string;
   icerik: import("./maliyet").TeklifOzeti;
+  created_at: string;
+};
+
+export type IhaleDosyasi = {
+  id: string;
+  ihale_id: string;
+  urun_id: string | null;
+  dosya_adi: string;
+  yol: string;
+  boyut: number;
+  tur: string;
   created_at: string;
 };

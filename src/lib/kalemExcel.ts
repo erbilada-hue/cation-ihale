@@ -62,6 +62,27 @@ function tipOku(metin: string): boolean | null {
   return null;
 }
 
+const FASON_PARCALARI = [
+  { ad: "Fason – Kesim", kelimeler: ["kesim", "fason"] },
+  { ad: "Fason – Dikim", kelimeler: ["dikim", "fason", "overlok", "reçme"] },
+  { ad: "Fason – Ütü ve paket", kelimeler: ["ütü", "paket", "paketleme", "presleme"] },
+];
+
+/**
+ * Tek satırlık "Fason (kesim+dikim+ütü)" kalemi kesim, dikim ve ütü-paket olarak
+ * üç ayrı kaleme bölünür; her biri ayrı fiyatlanır.
+ */
+export function fasonuAyir(satir: SablonSatiri): SablonSatiri[] {
+  const ad = sadelestir(satir.ad);
+  if (!(ad.startsWith("fason") && ad.includes("kesim") && ad.includes("dikim"))) return [satir];
+  return FASON_PARCALARI.map((p) => ({
+    ...satir,
+    ad: p.ad,
+    varsayilan_birim_fiyat: null,
+    anahtar_kelimeler: p.kelimeler,
+  }));
+}
+
 export type CozumSonucu = { satirlar: SablonSatiri[]; hatalar: string[] };
 
 /**
@@ -128,7 +149,8 @@ export function sayfalariCoz(sayfalar: { ad: string; satirlar: unknown[][] }[]):
         hatalar.push(`${sayfa.ad} satır ${satirNo}: Tip "Zorunlu" veya "Opsiyonel" olmalı.`);
         return;
       }
-      sonuc.push({
+      sonuc.push(
+        ...fasonuAyir({
         urun_grubu: grup,
         ad,
         zorunlu,
@@ -139,7 +161,8 @@ export function sayfalariCoz(sayfalar: { ad: string; satirlar: unknown[][] }[]):
           .split(/[,;]/)
           .map((k) => k.trim())
           .filter(Boolean),
-      });
+        }),
+      );
     });
   }
 

@@ -4,10 +4,11 @@ import type {
   KalemSablonu,
   SegmentSablonu,
   Teklif,
+  IhaleDosyasi,
   UrunKalemli,
   UrunKalemi,
 } from "./tipler";
-export { maliyetGirdisi } from "./maliyetGirdisi";
+export { ihaleKurlari, maliyetGirdisi } from "./maliyetGirdisi";
 import { sunucuIstemcisi } from "./supabase/server";
 
 type Supabase = ReturnType<typeof sunucuIstemcisi>;
@@ -16,7 +17,7 @@ type Supabase = ReturnType<typeof sunucuIstemcisi>;
 const sayi = (v: unknown): number | null => (v == null ? null : Number(v));
 
 export function kalemiDuzelt(k: UrunKalemi): UrunKalemi {
-  return { ...k, kullanim: sayi(k.kullanim), birim_fiyat: sayi(k.birim_fiyat) };
+  return { ...k, kullanim: sayi(k.kullanim), birim_fiyat: sayi(k.birim_fiyat), para_birimi: k.para_birimi ?? "TRY" };
 }
 
 export function urunuDuzelt(u: UrunKalemli): UrunKalemli {
@@ -42,7 +43,9 @@ export function kalemSablonunuDuzelt(k: KalemSablonu): KalemSablonu {
 
 export async function ihaleGetir(supabase: Supabase, id: string) {
   const { data } = await supabase.from("ihaleler").select("*").eq("id", id).maybeSingle();
-  return (data as Ihale | null) ?? null;
+  const ihale = data as Ihale | null;
+  if (!ihale) return null;
+  return { ...ihale, usd_kuru: sayi(ihale.usd_kuru), eur_kuru: sayi(ihale.eur_kuru) };
 }
 
 export async function urunleriGetir(supabase: Supabase, ihaleId: string) {
@@ -90,4 +93,13 @@ export async function teklifleriGetir(supabase: Supabase, ihaleId: string) {
     .eq("ihale_id", ihaleId)
     .order("created_at", { ascending: false });
   return (data ?? []) as Teklif[];
+}
+
+export async function dosyalariGetir(supabase: Supabase, ihaleId: string) {
+  const { data } = await supabase
+    .from("ihale_dosyalari")
+    .select("*")
+    .eq("ihale_id", ihaleId)
+    .order("created_at");
+  return ((data ?? []) as IhaleDosyasi[]).map((d) => ({ ...d, boyut: Number(d.boyut) }));
 }

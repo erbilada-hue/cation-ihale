@@ -5,12 +5,24 @@ const tl = new Intl.NumberFormat("tr-TR", {
   maximumFractionDigits: 2,
 });
 
+const dovizler = {
+  USD: new Intl.NumberFormat("tr-TR", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 4 }),
+  EUR: new Intl.NumberFormat("tr-TR", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 4 }),
+};
+
 const sayi = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 4 });
 const tamSayi = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 0 });
 
 /** ₺1.234,56 */
 export function paraYaz(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return "—";
+  return tl.format(n);
+}
+
+/** Kalemin kendi para biriminde fiyatı: ₺1.234,56 / $12,50 / €8,75 */
+export function fiyatYaz(n: number | null | undefined, paraBirimi: string): string {
+  if (n == null || Number.isNaN(n)) return "—";
+  if (paraBirimi === "USD" || paraBirimi === "EUR") return dovizler[paraBirimi].format(n);
   return tl.format(n);
 }
 
@@ -44,7 +56,7 @@ export function tarihYaz(d: string | Date | null | undefined): string {
  * Boş ise null döner, okunamazsa NaN döner.
  */
 export function sayiOku(metin: string): number | null {
-  let s = metin.trim().replace(/\s|₺|%/g, "");
+  let s = metin.trim().replace(/\s|₺|\$|€|%/g, "");
   if (s === "") return null;
   if (s.includes(",")) {
     s = s.replace(/\./g, "").replace(",", ".");

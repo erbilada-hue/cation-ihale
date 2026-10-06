@@ -1,14 +1,17 @@
 // Maliyet motoru. Hesap sırası sabittir ve değiştirilemez:
-//   1. Ham birim maliyet  = Σ (kullanım × birim fiyat)
+//   1. Ham birim maliyet  = Σ (kullanım × birim fiyat × kur)
 //   2. Fire dahil maliyet = ham × (1 + fire%)
 //   3. Teklif fiyatı      = fire dahil × (1 + kâr marjı%)
 //   4. KDV dahil fiyat    = teklif × (1 + KDV%)
 // KDV fiyatın içinde değildir, üzerine eklenir.
 // Teklif birim fiyatı kuruşa yuvarlanır; müşteriye verilen fiyat ile iç hesap aynı kalır.
+// Dolar/euro ile alınan kalemler ihalede girilen kurla TL'ye çevrilir.
 
 export type KalemGirdi = {
   kullanim: number | null;
   birimFiyat: number | null;
+  /** TL karşılığı için çarpan: TL kalemde 1 (veya boş), dövizli kalemde kur; kur girilmediyse null */
+  kur?: number | null;
 };
 
 export type UrunGirdi = {
@@ -34,14 +37,17 @@ export type UrunSonuc = {
   toplam: BirimTutarlar;
   /** Kullanım veya birim fiyatı girilmemiş kalem sayısı */
   eksikKalemSayisi: number;
+  /** Dövizli olup kuru girilmemiş kalem sayısı; teklif fiyatı hesaplanmaz */
+  kurEksikKalemSayisi: number;
   /** Fire ve kâr marjı girildi mi; girilmediyse teklif fiyatı hesaplanmaz */
   fireEksik: boolean;
   karEksik: boolean;
 };
 
+/** Kalemin 1 adet ürün için TL tutarı */
 export function kalemTutari(k: KalemGirdi): number {
-  if (k.kullanim == null || k.birimFiyat == null) return 0;
-  return k.kullanim * k.birimFiyat;
+  if (k.kullanim == null || k.birimFiyat == null || k.kur === null) return 0;
+  return k.kullanim * k.birimFiyat * (k.kur ?? 1);
 }
 
 export function hesaplaUrun(u: UrunGirdi): UrunSonuc {
@@ -49,10 +55,13 @@ export function hesaplaUrun(u: UrunGirdi): UrunSonuc {
   const eksikKalemSayisi = u.kalemler.filter(
     (k) => k.kullanim == null || k.birimFiyat == null,
   ).length;
+  const kurEksikKalemSayisi = u.kalemler.filter((k) => k.kur === null).length;
 
   const fireDahil = u.fireOrani == null ? null : ham * (1 + u.fireOrani / 100);
   const teklif =
-    fireDahil == null || u.karMarji == null ? null : kurusaYuvarla(fireDahil * (1 + u.karMarji / 100));
+    fireDahil == null || u.karMarji == null || kurEksikKalemSayisi > 0
+      ? null
+      : kurusaYuvarla(fireDahil * (1 + u.karMarji / 100));
   const kdvDahil = teklif == null ? null : teklif * (1 + u.kdvOrani / 100);
 
   const birim: BirimTutarlar = {
@@ -69,6 +78,7 @@ export function hesaplaUrun(u: UrunGirdi): UrunSonuc {
     birim,
     toplam: carp(birim, u.adet),
     eksikKalemSayisi,
+    kurEksikKalemSayisi,
     fireEksik: u.fireOrani == null,
     karEksik: u.karMarji == null,
   };
@@ -122,9 +132,8 @@ export function teklifOlustur(urunler: TeklifSatirGirdi[]): TeklifOzeti {
   const satirlar = urunler.map((u) => {
     const s = hesaplaUrun(u);
     if (s.birim.teklif == null) {
-      throw new EksikBilgiHatasi(
-        `"${u.ad}" için ${s.fireEksik ? "fire oranı" : "kâr marjı"} girilmemiş.`,
-      );
+      const eksik = s.fireEksik ? "fire oranı" : s.karEksik ? "kâr marjı" : "döviz kuru";
+      throw new EksikBilgiHatasi(`"${u.ad}" için ${eksik} girilmemiş.`);
     }
     const birimFiyat = kurusaYuvarla(s.birim.teklif);
     return {

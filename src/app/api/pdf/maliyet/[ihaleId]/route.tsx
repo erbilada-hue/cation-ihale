@@ -3,7 +3,7 @@ import { sunucuIstemcisi } from "@/lib/supabase/server";
 import { ihaleGetir, segmentleriGetir, urunleriGetir } from "@/lib/veri";
 import { fontlariKaydet } from "@/pdf/ortak";
 import { IcMaliyetRaporuPdf } from "@/pdf/IcMaliyetRaporu";
-import { pdfYaniti } from "@/pdf/yanit";
+import { pdfHatasi, pdfYaniti } from "@/pdf/yanit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,9 +19,13 @@ export async function GET(_istek: Request, { params }: { params: { ihaleId: stri
   if (!ihale) return new Response("İhale bulunamadı.", { status: 404 });
   const [urunler, segmentler] = await Promise.all([urunleriGetir(supabase, ihale.id), segmentleriGetir(supabase)]);
 
-  fontlariKaydet();
-  const pdf = await renderToBuffer(
-    <IcMaliyetRaporuPdf ihale={ihale} urunler={urunler} segment={segmentler.find((s) => s.segment === ihale.segment)} />,
-  );
-  return pdfYaniti(pdf, `Ic-Maliyet-Raporu-${ihale.ad}.pdf`);
+  try {
+    fontlariKaydet();
+    const pdf = await renderToBuffer(
+      <IcMaliyetRaporuPdf ihale={ihale} urunler={urunler} segment={segmentler.find((s) => s.segment === ihale.segment)} />,
+    );
+    return pdfYaniti(pdf, `Ic-Maliyet-Raporu-${ihale.ad}.pdf`);
+  } catch (e) {
+    return pdfHatasi(e);
+  }
 }

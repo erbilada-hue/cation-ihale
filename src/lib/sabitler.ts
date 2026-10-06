@@ -31,3 +31,15 @@ export function asamaAdi(kod: string): string {
 }
 
 export const BIRIMLER = ["m", "adet", "set", "kg", "gram", "takım", "dakika"] as const;
+
+export const PARA_BIRIMLERI = [
+  { kod: "TRY", sembol: "₺", ad: "TL" },
+  { kod: "USD", sembol: "$", ad: "Dolar" },
+  { kod: "EUR", sembol: "€", ad: "Euro" },
+] as const;
+
+export type ParaBirimi = (typeof PARA_BIRIMLERI)[number]["kod"];
+
+export function paraSembolu(kod: string): string {
+  return PARA_BIRIMLERI.find((p) => p.kod === kod)?.sembol ?? "₺";
+}

@@ -1,7 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
-import { ihaleGetir, kalemSablonlariniGetir, segmentleriGetir, teklifleriGetir, urunleriGetir } from "@/lib/veri";
+import {
+  dosyalariGetir,
+  ihaleGetir,
+  ihaleKurlari,
+  kalemSablonlariniGetir,
+  segmentleriGetir,
+  teklifleriGetir,
+  urunleriGetir,
+} from "@/lib/veri";
 import { asamaAdi } from "@/lib/sabitler";
 import { tarihYaz } from "@/lib/format";
 import { MaliyetEditoru } from "./MaliyetEditoru";
@@ -14,11 +22,12 @@ export default async function IhaleDetaySayfasi({ params }: { params: { id: stri
   const ihale = await ihaleGetir(supabase, params.id);
   if (!ihale) notFound();
 
-  const [urunler, sablonlar, segmentler, teklifler] = await Promise.all([
+  const [urunler, sablonlar, segmentler, teklifler, dosyalar] = await Promise.all([
     urunleriGetir(supabase, ihale.id),
     kalemSablonlariniGetir(supabase),
     segmentleriGetir(supabase),
     teklifleriGetir(supabase, ihale.id),
+    dosyalariGetir(supabase, ihale.id),
   ]);
   const segment = segmentler.find((s) => s.segment === ihale.segment);
 
@@ -71,7 +80,14 @@ export default async function IhaleDetaySayfasi({ params }: { params: { id: stri
         )}
       </div>
 
-      <MaliyetEditoru ihaleId={ihale.id} ilkUrunler={urunler} sablonlar={sablonlar} teklifler={teklifler} />
+      <MaliyetEditoru
+        ihaleId={ihale.id}
+        ilkKurlar={ihaleKurlari(ihale)}
+        ilkUrunler={urunler}
+        sablonlar={sablonlar}
+        teklifler={teklifler}
+        dosyalar={dosyalar}
+      />
     </div>
   );
 }
