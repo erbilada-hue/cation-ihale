@@ -6,13 +6,33 @@ import type { Ihale } from "@/lib/tipler";
 
 export const dynamic = "force-dynamic";
 
-export default async function IhalelerSayfasi() {
+const DURUMLAR = [
+  { kod: "", ad: "Tümü" },
+  { kod: "aktif", ad: "Aktif" },
+  { kod: "bekleyen", ad: "Teklif verildi, sonuç bekleniyor" },
+  { kod: "olumlu", ad: "Olumlu" },
+  { kod: "olumsuz", ad: "Olumsuz" },
+] as const;
+
+type Satir = Ihale & { ihale_urunleri: { count: number }[]; teklifler: { count: number }[] };
+
+const aktifMi = (i: Satir) => i.sonuc == null && ["ihale", "maliyet", "teklif"].includes(i.asama);
+const SUZGECLER: Record<string, (i: Satir) => boolean> = {
+  aktif: aktifMi,
+  bekleyen: (i) => aktifMi(i) && (i.teklifler?.[0]?.count ?? 0) > 0,
+  olumlu: (i) => i.sonuc === "olumlu",
+  olumsuz: (i) => i.sonuc === "olumsuz",
+};
+
+export default async function IhalelerSayfasi({ searchParams }: { searchParams: { durum?: string } }) {
   const supabase = sunucuIstemcisi();
   const { data } = await supabase
     .from("ihaleler")
-    .select("*, ihale_urunleri(count)")
+    .select("*, ihale_urunleri(count), teklifler(count)")
     .order("created_at", { ascending: false });
-  const ihaleler = (data ?? []) as (Ihale & { ihale_urunleri: { count: number }[] })[];
+  const tumu = (data ?? []) as Satir[];
+  const durum = searchParams.durum && SUZGECLER[searchParams.durum] ? searchParams.durum : "";
+  const ihaleler = durum ? tumu.filter(SUZGECLER[durum]) : tumu;
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -21,18 +41,41 @@ export default async function IhalelerSayfasi() {
           <h1 className="text-2xl font-semibold text-brand-dark">İhaleler</h1>
           <p className="text-sm text-slate-500">Tüm ihaleler ve bulundukları aşama</p>
         </div>
-        <Link href="/ihaleler/yeni" className="btn-birincil">
-          + Yeni İhale
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/raporlar" className="btn-ikincil">
+            Kazanılan işler raporu
+          </Link>
+          <Link href="/ihaleler/yeni" className="btn-birincil">
+            + Yeni İhale
+          </Link>
+        </div>
       </div>
 
-      {ihaleler.length === 0 ? (
+      {tumu.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {DURUMLAR.map((d) => (
+            <Link
+              key={d.kod}
+              href={d.kod ? `/ihaleler?durum=${d.kod}` : "/ihaleler"}
+              className={`rounded-full border px-3 py-1.5 text-sm ${
+                durum === d.kod ? "border-brand bg-brand text-white" : "border-cizgi bg-white text-slate-600 hover:border-brand hover:text-brand"
+              }`}
+            >
+              {d.ad} <span className="opacity-70">{d.kod ? tumu.filter(SUZGECLER[d.kod]).length : tumu.length}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {tumu.length === 0 ? (
         <div className="kart p-10 text-center">
           <p className="text-slate-600">Henüz ihale yok.</p>
           <Link href="/ihaleler/yeni" className="btn-birincil mt-4">
             İlk ihaleyi oluştur
           </Link>
         </div>
+      ) : ihaleler.length === 0 ? (
+        <div className="kart p-10 text-center text-slate-500">Bu durumda ihale yok.</div>
       ) : (
         <div className="kart overflow-hidden">
           <table className="w-full text-sm">
@@ -43,6 +86,7 @@ export default async function IhalelerSayfasi() {
                 <th className="px-4 py-3 font-medium">Son teklif tarihi</th>
                 <th className="px-4 py-3 text-right font-medium">Ürün</th>
                 <th className="px-4 py-3 font-medium">Aşama</th>
+                <th className="px-4 py-3 font-medium">Sonuç</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-cizgi">
@@ -67,6 +111,15 @@ export default async function IhalelerSayfasi() {
                   <td className="rakam px-4 py-3 text-right">{i.ihale_urunleri?.[0]?.count ?? 0}</td>
                   <td className="px-4 py-3">
                     <span className="rozet bg-brand-soft text-brand">{asamaAdi(i.asama)}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {i.sonuc === "olumlu" ? (
+                      <span className="rozet bg-green-100 text-green-800">✓ Olumlu</span>
+                    ) : i.sonuc === "olumsuz" ? (
+                      <span className="rozet bg-red-100 text-red-800">✗ Olumsuz</span>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
                   </td>
                 </tr>
               ))}

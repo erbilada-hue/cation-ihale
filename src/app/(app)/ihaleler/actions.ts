@@ -17,6 +17,7 @@ import { EksikBilgiHatasi, teklifOlustur } from "@/lib/maliyet";
 import { HAZIR_URUN, PARA_BIRIMLERI, SEGMENTLER, URUN_GRUPLARI } from "@/lib/sabitler";
 import type { IhaleDosyasi, KalemSablonu, UrunKalemi, UrunKalemli } from "@/lib/tipler";
 import { SARTNAME_KLASORU } from "@/lib/dosya";
+import { tarihMetni } from "@/lib/format";
 import { belgeyiHazirlaAsync } from "@/lib/belgeMetni";
 import { yapilandirilmisOku } from "@/lib/ai";
 import { ANALIZ_SISTEM_ISTEMI, AnalizSemasi, analiziEslestir, kutuphaneMetni, type AnalizSonucu } from "@/lib/sartnameAnalizi";
@@ -277,6 +278,104 @@ export async function urunSil(urunId: string): Promise<Sonuc> {
   return { veri: null };
 }
 
+/**
+ * Ürünü bütün kalemleri, fire, kâr marjı ve KDV'siyle birlikte kopyalar.
+ * Hedef aynı ihale ise adına "(kopya)" eklenir; başka ihaleye kopyalanırsa adı aynı kalır.
+ */
+export async function urunKopyala(urunId: string, hedefIhaleId: string): Promise<Sonuc<UrunKalemli>> {
+  const supabase = sunucuIstemcisi();
+  const { data: kaynak } = await supabase
+    .from("ihale_urunleri")
+    .select("*, urun_kalemleri(*)")
+    .eq("id", urunId)
+    .maybeSingle();
+  if (!kaynak) return { hata: "Kopyalanacak ürün bulunamadı." };
+  const urun = urunuDuzelt(kaynak as UrunKalemli);
+  const hedef = await ihaleGetir(supabase, hedefIhaleId);
+  if (!hedef) return { hata: "Hedef ihale bulunamadı." };
+
+  const ayniIhale = hedef.id === urun.ihale_id;
+  const { count } = await supabase
+    .from("ihale_urunleri")
+    .select("id", { count: "exact", head: true })
+    .eq("ihale_id", hedef.id);
+
+  const { data: yeni, error } = await supabase
+    .from("ihale_urunleri")
+    .insert({
+      ihale_id: hedef.id,
+      urun_grubu: urun.urun_grubu,
+      ad: ayniIhale ? `${urun.ad} (kopya)` : urun.ad,
+      aciklama: urun.aciklama,
+      adet: urun.adet,
+      fire_orani: urun.fire_orani,
+      kar_marji: urun.kar_marji,
+      kdv_orani: urun.kdv_orani,
+      sira: count ?? 0,
+    })
+    .select("*")
+    .single();
+  if (error) return { hata: "Ürün kopyalanamadı: " + error.message };
+
+  let kalemler: UrunKalemi[] = [];
+  const siraliKalemler = [...urun.urun_kalemleri].sort((a, b) => a.sira - b.sira);
+  if (siraliKalemler.length > 0) {
+    const { data, error: kHata } = await supabase
+      .from("urun_kalemleri")
+      .insert(
+        siraliKalemler.map((k, i) => ({
+          urun_id: yeni.id,
+          sablon_id: k.sablon_id,
+          ad: k.ad,
+          zorunlu: k.zorunlu,
+          birim: k.birim,
+          kullanim: k.kullanim,
+          birim_fiyat: k.birim_fiyat,
+          para_birimi: k.para_birimi,
+          tedarikci_fiyat_id: k.tedarikci_fiyat_id,
+          sira: i,
+        })),
+      )
+      .select("*");
+    if (kHata) {
+      await supabase.from("ihale_urunleri").delete().eq("id", yeni.id);
+      return { hata: "Kalemler kopyalanamadı: " + kHata.message };
+    }
+    kalemler = (data as UrunKalemi[]).map(kalemiDuzelt);
+  }
+
+  if (hedef.asama === "ihale") {
+    await supabase.from("ihaleler").update({ asama: "maliyet" }).eq("id", hedef.id);
+  }
+  revalidatePath(`/ihaleler/${hedef.id}`);
+  return { veri: urunuDuzelt({ ...(yeni as UrunKalemli), urun_kalemleri: kalemler }) };
+}
+
+// ---------------------------------------------------------------------------
+// İhale sonucu (olumlu / olumsuz)
+// ---------------------------------------------------------------------------
+
+/** Sonucu işaretler; sonuc null ise işaret kaldırılır. Tarih boşsa bugün yazılır. */
+export async function ihaleSonucuKaydet(
+  ihaleId: string,
+  sonuc: "olumlu" | "olumsuz" | null,
+  tarih?: string,
+): Promise<Sonuc> {
+  if (sonuc !== null && sonuc !== "olumlu" && sonuc !== "olumsuz") return { hata: "Sonuç geçersiz." };
+  if (tarih && !/^\d{4}-\d{2}-\d{2}$/.test(tarih)) return { hata: "Tarih geçersiz." };
+  const supabase = sunucuIstemcisi();
+  const { error } = await supabase
+    .from("ihaleler")
+    .update({ sonuc, sonuc_tarihi: sonuc ? tarih || tarihMetni(new Date()) : null })
+    .eq("id", ihaleId);
+  if (error) return { hata: "Sonuç kaydedilemedi: " + error.message };
+  revalidatePath(`/ihaleler/${ihaleId}`);
+  revalidatePath("/ihaleler");
+  revalidatePath("/raporlar");
+  revalidatePath("/");
+  return { veri: null };
+}
+
 // ---------------------------------------------------------------------------
 // Kalemler
 // ---------------------------------------------------------------------------
@@ -456,11 +555,6 @@ export async function dosyaSil(dosyaId: string): Promise<Sonuc> {
   if (error) return { hata: "Dosya silinemedi: " + error.message };
   revalidatePath(`/ihaleler/${dosya.ihale_id}`);
   return { veri: null };
-}
-
-// Türkiye saatine göre YYYY-MM-DD
-function tarihMetni(d: Date): string {
-  return d.toLocaleDateString("sv-SE", { timeZone: "Europe/Istanbul" });
 }
 
 // ---------------------------------------------------------------------------

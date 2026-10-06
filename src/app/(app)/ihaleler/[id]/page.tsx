@@ -15,6 +15,7 @@ import { asamaAdi } from "@/lib/sabitler";
 import { tarihYaz } from "@/lib/format";
 import { MaliyetEditoru } from "./MaliyetEditoru";
 import { IhaleSilButonu } from "./IhaleSilButonu";
+import { IhaleSonucu } from "./IhaleSonucu";
 
 export const dynamic = "force-dynamic";
 // Şartname analizi (yapay zekâ) uzun şartnamelerde bir-iki dakika sürebilir
@@ -25,13 +26,19 @@ export default async function IhaleDetaySayfasi({ params }: { params: { id: stri
   const ihale = await ihaleGetir(supabase, params.id);
   if (!ihale) notFound();
 
-  const [urunler, sablonlar, segmentler, teklifler, dosyalar, fiyatListesi] = await Promise.all([
+  const [urunler, sablonlar, segmentler, teklifler, dosyalar, fiyatListesi, digerIhaleler] = await Promise.all([
     urunleriGetir(supabase, ihale.id),
     kalemSablonlariniGetir(supabase),
     segmentleriGetir(supabase),
     teklifleriGetir(supabase, ihale.id),
     dosyalariGetir(supabase, ihale.id),
     fiyatListesiniGetir(supabase),
+    supabase
+      .from("ihaleler")
+      .select("id, ad")
+      .neq("id", ihale.id)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => (data ?? []) as { id: string; ad: string }[]),
   ]);
   const segment = segmentler.find((s) => s.segment === ihale.segment);
 
@@ -77,6 +84,8 @@ export default async function IhaleDetaySayfasi({ params }: { params: { id: stri
         </div>
       </div>
 
+      <IhaleSonucu ihaleId={ihale.id} sonuc={ihale.sonuc ?? null} sonucTarihi={ihale.sonuc_tarihi ?? null} />
+
       <div
         className={`mb-2 rounded-lg border px-4 py-2.5 text-sm ${
           ihale.kaynak === "sartname"
@@ -103,6 +112,7 @@ export default async function IhaleDetaySayfasi({ params }: { params: { id: stri
         fiyatListesi={fiyatListesi}
         segmentler={segmentler}
         ihaleSegmenti={ihale.kaynak === "segment" ? ihale.segment : null}
+        digerIhaleler={digerIhaleler}
       />
     </div>
   );

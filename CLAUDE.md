@@ -130,7 +130,7 @@ Fiyat aralık olarak gelirse (160-165) ortalama alınır ve uyarı verilir.
 İhale → Maliyet → Teklif → Sipariş → Üretim → Termin
 ```
 
-**"Kazandı/Kaybetti" statüsü YOKTUR.** İhale kazanılınca direkt üretime geçilir. Müşteri onay/red takibi tutulmaz.
+**İhale sonucu:** Erbil'in isteğiyle (2026-10-07) her ihaleye "Olumlu / Olumsuz" sonuç işareti ve sonuç tarihi eklendi. Ay sonu / yıl sonu "Kazanılan İşler Raporu" bu işarete göre çekilir (Raporlar sayfası, Excel indirilebilir). Sonuç işareti aşamayı kendiliğinden değiştirmez.
 
 **Beden dağılımı ihale aşamasında girilmez.** Müşteri "4000 adet tişört" der, beden dağılımını ihaleyi kazandıktan sonra verir. Beden dağılımı Sipariş Onayı aşamasında girilir.
 
@@ -159,11 +159,11 @@ Fiyat aralık olarak gelirse (160-165) ortalama alınır ve uyarı verilir.
 1. **Aktif İhaleler** → ihale listesi. Alt not: teklif tarihi bu hafta olanlar
 2. **Tedarikçiden Bekleyen Fiyat** → cevaplar sekmesi. Alt not: en uzun bekleyen kaç gün (3 gün+ turuncu, 7 gün+ kırmızı)
 3. **Bekleyen Müşteri Onayı** → gönderilmiş teklifler
-4. **Yaklaşan Termin** → siparişler. 7 günden az kaldıysa kırmızı border, 14 günden az turuncu
+4. **Bu Ay Kazanılan** → Kazanılan İşler Raporu (termin metin olarak tutulduğu için "Yaklaşan Termin" kartı sipariş modülüne kalır)
 
 Alt kısım 2 sütun:
-- **Sol — Yapılacaklar:** öncelik sırasına göre, her satır tıklanabilir
-- **Sağ — Son Aktiviteler:** zaman damgalı akış, üretim odaklı bildirimler
+- **Sol — Yapılacaklar:** ekibin eklediği görevler (isteğe bağlı ihale ve son tarih) + sistemin hatırlatmaları (teklifi hazırlanmamış yakın ihale, işaretlenmemiş sonuç, 3 günü geçen fiyat talebi)
+- **Sağ — Yaklaşan teklif tarihleri:** aktif ihaleler, son teklif tarihine göre
 
 ---
 

@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const BAGLANTILAR = [
+  { href: "/", ad: "Genel Bakış" },
   { href: "/ihaleler", ad: "İhaleler" },
+  { href: "/raporlar", ad: "Raporlar" },
   { href: "/musteriler", ad: "Müşteriler" },
   { href: "/tedarikciler", ad: "Tedarikçiler" },
   { href: "/fiyat-listesi", ad: "Fiyat Listesi" },
@@ -17,7 +19,7 @@ export function YanMenu() {
   return (
     <nav className="space-y-1">
       {BAGLANTILAR.map((b) => {
-        const aktif = yol === b.href || yol.startsWith(b.href + "/");
+        const aktif = b.href === "/" ? yol === "/" : yol === b.href || yol.startsWith(b.href + "/");
         return (
           <Link
             key={b.href}

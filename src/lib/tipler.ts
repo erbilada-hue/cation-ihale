@@ -55,9 +55,22 @@ export type Ihale = {
   usd_kuru: number | null;
   eur_kuru: number | null;
   asama: string;
+  /** Boşsa ihale henüz sonuçlanmamıştır */
+  sonuc: "olumlu" | "olumsuz" | null;
+  sonuc_tarihi: string | null;
   notlar: string;
   created_at: string;
   updated_at: string;
+};
+
+export type Gorev = {
+  id: string;
+  baslik: string;
+  ihale_id: string | null;
+  son_tarih: string | null;
+  tamamlandi: boolean;
+  tamamlanma_zamani: string | null;
+  created_at: string;
 };
 
 export type IhaleUrunu = {
