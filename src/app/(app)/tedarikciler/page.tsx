@@ -12,6 +12,7 @@ const SEKMELER = [
   { kod: "kumas", ad: "Kumaş" },
   { kod: "baski", ad: "Baskı-Nakış" },
   { kod: "aksesuar", ad: "Aksesuar" },
+  { kod: "hazir", ad: "Hazır Ürün" },
   { kod: "diger", ad: "Diğer" },
 ] as const;
 
@@ -23,6 +24,7 @@ function sekmesi(kategori: string): string {
   if (k.startsWith("kumas")) return "kumas";
   if (k.startsWith("baski") || k.startsWith("nakis")) return "baski";
   if (k.startsWith("aksesuar")) return "aksesuar";
+  if (k.startsWith("hazir")) return "hazir";
   return "diger";
 }
 

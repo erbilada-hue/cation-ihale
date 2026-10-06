@@ -45,7 +45,7 @@ tur_gerekcesi alanına bunu tek kısa Türkçe cümleyle yaz (ör. "Kumaş grama
 
 2) Her ürünü ayrı satır olarak çıkar:
 - ad: ürünün kısa Türkçe adı (ör. "Reflektörlü kışlık mont", "Polo yaka tişört").
-- urun_grubu: verilen ürün gruplarından en uygun olanı.
+- urun_grubu: verilen ürün gruplarından en uygun olanı. Kemer, havlu, eldiven, fular, kravat, kazak gibi dikilmeyip hazır alınan ürünler için hazir_urun.
 - adet: belgede yazıyorsa sayı, yoksa null. Adet uydurma. Bedenlere bölünmüşse toplamını yaz.
 - aciklama: maliyeti etkileyen teknik özet tek satırda: kumaş türü, gramaj, içerik, renk, baskı/nakış, standartlar. Belgede olmayan bilgi yazma.
 - opsiyonel_kalemler: o ürün grubunun opsiyonel kalem listesinden, belgede açıkça istenen veya anahtar kelimeleri geçen kalemlerin adları. Adları listede yazdığı gibi aynen kullan; listede olmayan ad yazma. Emin değilsen ekleme.
