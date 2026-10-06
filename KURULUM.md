@@ -12,11 +12,12 @@ Sistemi çalıştırmak için iki ücretsiz hesap gerekir: **Supabase** (veritab
    "Success" görünmeli. Bu adım tabloları ve segment şablonlarını oluşturur.
    Ardından `supabase/migrations` klasöründeki diğer dosyaları da tarih sırasıyla aynı şekilde çalıştırın
    (şu an: `20261006000000_faz1_doviz_sartname_fason.sql`: döviz, şartname dosyaları, fason ayrımı;
-   `20261007000000_faz2_tedarikci.sql`: tedarikçiler, fiyat listesi, fiyat talepleri).
+   `20261007000000_faz2_tedarikci.sql`: tedarikçiler, fiyat listesi, fiyat talepleri;
+   `20261008000000_musteriler.sql`: müşteriler, marka / proje).
 4. **Authentication → Sign In / Providers** sayfasında **Allow new users to sign up** ayarını kapatın.
    Böylece sadece sizin davet ettiğiniz kişiler girebilir.
-5. **Authentication → Users → Add user → Send invitation** ile ekip arkadaşlarınızı e-postalarıyla davet edin
-   (ya da **Create new user** ile şifreyi kendiniz belirleyin).
+5. İlk kullanıcıyı (kendinizi) **Authentication → Users → Add user → Create new user** ile oluşturun.
+   Diğer kişileri sonra sitedeki **Ayarlar → Kullanıcılar** bölümünden ekleyebilirsiniz (bkz. 4. bölüm).
 6. **Project Settings → API** sayfasından iki değeri alacaksınız:
    - **Project URL**
    - **anon public** anahtarı
@@ -49,7 +50,18 @@ Tedarikçi cevabını okuma ve şartname analizi için gereklidir. Anahtarı kim
    - **Sensitive** seçeneği açık kalabilir.
 4. **Deployments** sekmesinde en üstteki yayının **⋯** menüsünden **Redeploy** deyin.
 
-## 4. İlk kullanım
+## 4. Kullanıcı yönetimi anahtarı
+
+Ayarlar → Kullanıcılar bölümünden kişi eklemek, şifre belirlemek ve kaldırmak için bir kez yapılır:
+
+1. Supabase → **Project Settings → API Keys** sayfasında **service_role** (yeni arayüzde **secret**) anahtarını kopyalayın.
+2. Vercel → proje → **Settings → Environment Variables → Add**:
+   Key `SUPABASE_SERVICE_ROLE_KEY`, Value kopyaladığınız anahtar, Type **Secret**, ortam **Production**.
+3. **Deployments** sayfasından son yayını **Redeploy** edin.
+
+Bu anahtar veritabanında tam yetkilidir: kimseyle paylaşmayın, sohbete yapıştırmayın. Site onu sadece sunucuda kullanır.
+
+## 5. İlk kullanım
 
 1. Site adresine girip Supabase'de oluşturduğunuz kullanıcıyla giriş yapın.
 2. **Ayarlar** sayfasında firma bilgilerini, IBAN'ı ve logoyu girin. Teklif PDF'inde bunlar görünür.
