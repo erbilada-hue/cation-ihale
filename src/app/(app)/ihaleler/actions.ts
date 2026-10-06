@@ -31,6 +31,36 @@ export type Sonuc<T = null> = { hata: string; veri?: undefined } | { hata?: unde
 
 export type IhaleFormDurumu = { hata: string | null };
 
+/** İhale formunda "+ Yeni müşteri" seçeneğinin değeri */
+const YENI_MUSTERI = "__yeni__";
+
+type Supabase = ReturnType<typeof sunucuIstemcisi>;
+
+/** Aynı adda (büyük/küçük harf farkı gözetmeden) kayıtlı müşteriyi bulur */
+async function musteriBul(supabase: Supabase, ad: string): Promise<{ id: string; ad: string } | null> {
+  const kalip = ad.replace(/[\\%_]/g, (k) => "\\" + k);
+  const { data } = await supabase.from("musteriler").select("id, ad").ilike("ad", kalip).limit(1);
+  return (data?.[0] as { id: string; ad: string } | undefined) ?? null;
+}
+
+/** Formdaki müşteri seçimini müşteri kartına çevirir; yeni müşteri adı yazıldıysa kartını oluşturur */
+async function musteriCoz(supabase: Supabase, form: FormData): Promise<{ hata: string } | { id: string | null; ad: string }> {
+  const secim = String(form.get("musteri_id") ?? "");
+  if (!secim) return { id: null, ad: "" };
+  if (secim === YENI_MUSTERI) {
+    const ad = String(form.get("yeni_musteri") ?? "").trim();
+    if (!ad) return { hata: "Yeni müşterinin adını yazın." };
+    const var_ = await musteriBul(supabase, ad);
+    if (var_) return var_;
+    const { data, error } = await supabase.from("musteriler").insert({ ad }).select("id, ad").single();
+    if (error) return { hata: "Müşteri kaydedilemedi: " + error.message };
+    return data as { id: string; ad: string };
+  }
+  const { data } = await supabase.from("musteriler").select("id, ad").eq("id", secim).maybeSingle();
+  if (!data) return { hata: "Seçilen müşteri bulunamadı; sayfayı yenileyip tekrar seçin." };
+  return data as { id: string; ad: string };
+}
+
 export async function ihaleKaydet(_onceki: IhaleFormDurumu, form: FormData): Promise<IhaleFormDurumu> {
   const id = String(form.get("id") ?? "") || null;
   const ad = String(form.get("ad") ?? "").trim();
@@ -45,9 +75,15 @@ export async function ihaleKaydet(_onceki: IhaleFormDurumu, form: FormData): Pro
     return { hata: "Teknik şartname yoksa kalite segmentini seçmeniz zorunludur." };
   }
 
+  const supabase = sunucuIstemcisi();
+  const musteri = await musteriCoz(supabase, form);
+  if ("hata" in musteri) return { hata: musteri.hata };
+
   const kayit = {
     ad,
-    musteri: String(form.get("musteri") ?? "").trim(),
+    musteri: musteri.ad,
+    musteri_id: musteri.id,
+    marka: String(form.get("marka") ?? "").trim(),
     yetkili: String(form.get("yetkili") ?? "").trim(),
     son_teklif_tarihi: String(form.get("son_teklif_tarihi") ?? "") || null,
     teslim_yeri: String(form.get("teslim_yeri") ?? "").trim(),
@@ -58,7 +94,6 @@ export async function ihaleKaydet(_onceki: IhaleFormDurumu, form: FormData): Pro
     notlar: String(form.get("notlar") ?? "").trim(),
   };
 
-  const supabase = sunucuIstemcisi();
   let hedefId = id;
   if (id) {
     const { error } = await supabase.from("ihaleler").update(kayit).eq("id", id);
@@ -70,6 +105,7 @@ export async function ihaleKaydet(_onceki: IhaleFormDurumu, form: FormData): Pro
   }
 
   revalidatePath("/ihaleler");
+  revalidatePath("/musteriler", "layout");
   redirect(`/ihaleler/${hedefId}`);
 }
 
@@ -483,7 +519,12 @@ export async function analizUygula(ihaleId: string, g: AnalizOnayi): Promise<Son
     segment: g.kaynak === "segment" ? g.segment : null,
     kaynak_dosya: g.kaynakDosya,
   };
-  if (!ihale.musteri && g.ihale.musteri) guncelleme.musteri = g.ihale.musteri;
+  if (!ihale.musteri && !ihale.musteri_id && g.ihale.musteri) {
+    // Kayıtlı bir müşteriyle aynı adsa ona bağlanır; değilse ad yazılır, kartı ihale formundan açılabilir
+    const kayitli = await musteriBul(supabase, g.ihale.musteri);
+    guncelleme.musteri = kayitli?.ad ?? g.ihale.musteri;
+    if (kayitli) guncelleme.musteri_id = kayitli.id;
+  }
   if (!ihale.teslim_yeri && g.ihale.teslim_yeri) guncelleme.teslim_yeri = g.ihale.teslim_yeri;
   if (!ihale.termin && g.ihale.termin) guncelleme.termin = g.ihale.termin;
   if (!ihale.son_teklif_tarihi && /^\d{4}-\d{2}-\d{2}$/.test(g.ihale.son_teklif_tarihi)) {

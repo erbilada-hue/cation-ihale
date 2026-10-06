@@ -4,7 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 /** Yazdıkça listeyi süzer; aranan metin adres çubuğunda (?ara=) tutulur, sekme seçimi korunur */
-export default function TedarikciArama() {
+export default function AramaKutusu({ etiket, ipucu }: { etiket: string; ipucu: string }) {
   const router = useRouter();
   const yol = usePathname();
   const params = useSearchParams();
@@ -23,10 +23,10 @@ export default function TedarikciArama() {
   return (
     <input
       type="search"
-      aria-label="Tedarikçi ara"
+      aria-label={etiket}
       value={arama}
       onChange={(e) => setArama(e.target.value)}
-      placeholder="Tedarikçi, yetkili veya telefon ara…"
+      placeholder={ipucu}
       className="girdi w-72"
     />
   );

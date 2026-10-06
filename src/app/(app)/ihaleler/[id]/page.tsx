@@ -51,7 +51,16 @@ export default async function IhaleDetaySayfasi({ params }: { params: { id: stri
         <div>
           <h1 className="text-2xl font-semibold text-brand-dark">{ihale.ad}</h1>
           <div className="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-600">
-            <span>{ihale.musteri || "Müşteri girilmedi"}</span>
+            <span>
+              {ihale.musteri_id ? (
+                <Link href={`/musteriler/${ihale.musteri_id}`} className="hover:text-brand">
+                  {ihale.musteri}
+                </Link>
+              ) : (
+                ihale.musteri || "Müşteri girilmedi"
+              )}
+              {ihale.marka && <> · {ihale.marka}</>}
+            </span>
             <span>
               Son teklif: <span className="rakam">{tarihYaz(ihale.son_teklif_tarihi)}</span>
             </span>

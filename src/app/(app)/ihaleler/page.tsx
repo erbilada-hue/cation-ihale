@@ -53,7 +53,16 @@ export default async function IhalelerSayfasi() {
                       {i.ad}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{i.musteri || "—"}</td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {i.musteri_id ? (
+                      <Link href={`/musteriler/${i.musteri_id}`} className="hover:text-brand">
+                        {i.musteri}
+                      </Link>
+                    ) : (
+                      i.musteri || "—"
+                    )}
+                    {i.marka && <span className="text-slate-400"> · {i.marka}</span>}
+                  </td>
                   <td className="rakam px-4 py-3 text-slate-600">{tarihYaz(i.son_teklif_tarihi)}</td>
                   <td className="rakam px-4 py-3 text-right">{i.ihale_urunleri?.[0]?.count ?? 0}</td>
                   <td className="px-4 py-3">

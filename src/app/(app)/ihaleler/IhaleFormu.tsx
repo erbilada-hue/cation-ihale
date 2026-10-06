@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useFormState, useFormStatus } from "react-dom";
 import { ihaleKaydet } from "./actions";
 import { yuzdeYaz } from "@/lib/format";
-import type { Ihale, SegmentSablonu } from "@/lib/tipler";
+import type { Ihale, Musteri, SegmentSablonu } from "@/lib/tipler";
 
 function KaydetButonu({ yeni }: { yeni: boolean }) {
   const { pending } = useFormStatus();
@@ -16,8 +16,28 @@ function KaydetButonu({ yeni }: { yeni: boolean }) {
   );
 }
 
-export function IhaleFormu({ ihale, segmentler }: { ihale?: Ihale; segmentler: SegmentSablonu[] }) {
+const YENI_MUSTERI = "__yeni__";
+
+export function IhaleFormu({
+  ihale,
+  segmentler,
+  musteriler,
+  markalar,
+  varsayilanMusteri,
+}: {
+  ihale?: Ihale;
+  segmentler: SegmentSablonu[];
+  musteriler: Musteri[];
+  /** Müşteri id → daha önceki ihalelerinde yazılmış markalar */
+  markalar: Record<string, string[]>;
+  varsayilanMusteri?: string;
+}) {
   const [durum, eylem] = useFormState(ihaleKaydet, { hata: null });
+  // Müşteri adı yazılı ama kartı olmayan eski / yapay zekâyla doldurulmuş ihalelerde "yeni müşteri" önerilir
+  const [musteriId, setMusteriId] = useState<string>(
+    ihale ? (ihale.musteri_id ?? (ihale.musteri ? YENI_MUSTERI : "")) : (varsayilanMusteri ?? ""),
+  );
+  const oneriler = musteriId && musteriId !== YENI_MUSTERI ? (markalar[musteriId] ?? []) : [];
   const [kaynak, setKaynak] = useState<string>(ihale?.kaynak ?? "");
   const [segment, setSegment] = useState<string>(ihale?.segment ?? "");
 
@@ -31,8 +51,43 @@ export function IhaleFormu({ ihale, segmentler }: { ihale?: Ihale; segmentler: S
           <input id="ad" name="ad" required defaultValue={ihale?.ad} className="girdi" placeholder="Örn. Belediye 2026 iş kıyafeti alımı" />
         </div>
         <div>
-          <label className="etiket" htmlFor="musteri">Müşteri / Kurum</label>
-          <input id="musteri" name="musteri" defaultValue={ihale?.musteri} className="girdi" />
+          <label className="etiket" htmlFor="musteri_id">Müşteri / Kurum</label>
+          <select id="musteri_id" name="musteri_id" value={musteriId} onChange={(e) => setMusteriId(e.target.value)} className="girdi">
+            <option value="">Seçilmedi</option>
+            {musteriler.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.ad}
+              </option>
+            ))}
+            <option value={YENI_MUSTERI}>+ Yeni müşteri ekle</option>
+          </select>
+          {musteriId === YENI_MUSTERI && (
+            <input
+              name="yeni_musteri"
+              aria-label="Yeni müşterinin adı"
+              defaultValue={ihale?.musteri_id ? "" : ihale?.musteri}
+              required
+              autoFocus={!ihale}
+              className="girdi mt-2"
+              placeholder="Yeni müşterinin adı"
+            />
+          )}
+        </div>
+        <div>
+          <label className="etiket" htmlFor="marka">Marka / proje</label>
+          <input
+            id="marka"
+            name="marka"
+            list="marka-onerileri"
+            defaultValue={ihale?.marka}
+            className="girdi"
+            placeholder="Varsa, örn. Castrol veya Fabrika"
+          />
+          <datalist id="marka-onerileri">
+            {oneriler.map((m) => (
+              <option key={m} value={m} />
+            ))}
+          </datalist>
         </div>
         <div>
           <label className="etiket" htmlFor="yetkili">Yetkili kişi</label>
