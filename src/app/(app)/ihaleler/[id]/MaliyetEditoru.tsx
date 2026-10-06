@@ -23,8 +23,10 @@ import {
   musteriTeklifiOlustur,
   urunEkle,
   urunGuncelle,
+  urunKopyala,
   urunSil,
 } from "../actions";
+import Link from "next/link";
 
 type Props = {
   ihaleId: string;
@@ -38,6 +40,8 @@ type Props = {
   segmentler: SegmentSablonu[];
   /** İhaleyi açarken kullanıcının seçtiği segment */
   ihaleSegmenti: string | null;
+  /** Ürün kopyalarken hedef seçmek için diğer ihaleler (en yeni önce) */
+  digerIhaleler: { id: string; ad: string }[];
 };
 
 export function MaliyetEditoru({
@@ -50,6 +54,7 @@ export function MaliyetEditoru({
   fiyatListesi,
   segmentler,
   ihaleSegmenti,
+  digerIhaleler,
 }: Props) {
   const router = useRouter();
   const [urunler, setUrunler] = useState(ilkUrunler);
@@ -58,6 +63,7 @@ export function MaliyetEditoru({
   const [teklifHazirlaniyor, setTeklifHazirlaniyor] = useState(false);
   const [analizDosyasi, setAnalizDosyasi] = useState<IhaleDosyasi | null>(null);
   const [analizMesaji, setAnalizMesaji] = useState<string | null>(null);
+  const [kopyaMesaji, setKopyaMesaji] = useState<{ urunId: string; ad: string; ihaleId: string; ihaleAdi: string } | null>(null);
   const kayit = useKayit();
 
   const sonuclar = useMemo(
@@ -148,6 +154,28 @@ export function MaliyetEditoru({
     const s = await urunSil(urun.id);
     if (s.hata !== undefined) return setIslemHatasi(s.hata);
     setUrunler((liste) => liste.filter((u) => u.id !== urun.id));
+  }
+
+  async function urunuKopyala(urun: UrunKalemli, hedefIhaleId: string): Promise<boolean> {
+    setIslemHatasi(null);
+    setKopyaMesaji(null);
+    // Ekranda yazılıp henüz kaydedilmemiş değişiklikler de kopyaya geçsin
+    if (!(await kayit.bosalt())) {
+      setIslemHatasi("Bazı değişiklikler kaydedilemedi; kopyalamadan önce sayfayı yenileyin.");
+      return false;
+    }
+    const s = await urunKopyala(urun.id, hedefIhaleId);
+    if (s.hata !== undefined) {
+      setIslemHatasi(s.hata);
+      return false;
+    }
+    if (hedefIhaleId === ihaleId) {
+      setUrunler((l) => [...l, s.veri]);
+    } else {
+      const hedef = digerIhaleler.find((i) => i.id === hedefIhaleId);
+      setKopyaMesaji({ urunId: urun.id, ad: urun.ad, ihaleId: hedefIhaleId, ihaleAdi: hedef?.ad ?? "diğer ihale" });
+    }
+    return true;
   }
 
   // Tarayıcılar, tıklamadan sonra beklenip açılan pencereyi engeller. Bu yüzden
@@ -293,6 +321,19 @@ export function MaliyetEditoru({
           onKalemEkle={(g) => kalemiEkle(urun.id, g)}
           onKalemSil={(k) => kalemiSil(urun.id, k)}
           onSil={() => urunuSil(urun)}
+          digerIhaleler={digerIhaleler}
+          onKopyala={(hedef) => urunuKopyala(urun, hedef)}
+          kopyaMesaji={
+            kopyaMesaji?.urunId === urun.id ? (
+              <p className="border-b border-cizgi bg-green-50 px-6 py-2 text-sm text-green-800">
+                &ldquo;{kopyaMesaji.ad}&rdquo; ürünü{" "}
+                <Link href={`/ihaleler/${kopyaMesaji.ihaleId}`} className="font-medium underline">
+                  {kopyaMesaji.ihaleAdi}
+                </Link>{" "}
+                ihalesine kopyalandı.
+              </p>
+            ) : null
+          }
         />
       ))}
 
@@ -401,6 +442,9 @@ type UrunKartiProps = {
   onKalemEkle: (g: { sablonId: string } | { ad: string; birim: string }) => Promise<void>;
   onKalemSil: (k: UrunKalemi) => void;
   onSil: () => void;
+  digerIhaleler: { id: string; ad: string }[];
+  onKopyala: (hedefIhaleId: string) => Promise<boolean>;
+  kopyaMesaji: React.ReactNode;
 };
 
 function UrunKarti({
@@ -415,6 +459,9 @@ function UrunKarti({
   onKalemEkle,
   onKalemSil,
   onSil,
+  digerIhaleler,
+  onKopyala,
+  kopyaMesaji,
 }: UrunKartiProps) {
   const b = sonuc.birim;
   const t = sonuc.toplam;
@@ -459,11 +506,13 @@ function UrunKarti({
             <label className="etiket">Adet</label>
             <SayiGirdisi deger={urun.adet} tamSayi bosOlamaz onDeger={(n) => n != null && n > 0 && onUrun({ adet: n })} ariaLabel="Adet" />
           </div>
+          <KopyalaButonu ihaleId={urun.ihale_id} digerIhaleler={digerIhaleler} onKopyala={onKopyala} />
           <button type="button" className="btn-tehlike btn-kucuk mb-1" onClick={onSil}>
             Ürünü sil
           </button>
         </div>
       </header>
+      {kopyaMesaji}
 
       <div className="grid grid-cols-[minmax(0,1fr)_320px]">
         <div className="border-r border-cizgi p-6">
@@ -914,6 +963,65 @@ function KalemEkle({
       >
         + Kalem ekle
       </button>
+    </div>
+  );
+}
+
+/** "Kopyala": ürünü aynı ihaleye ya da başka bir ihaleye kopyalar */
+function KopyalaButonu({
+  ihaleId,
+  digerIhaleler,
+  onKopyala,
+}: {
+  ihaleId: string;
+  digerIhaleler: { id: string; ad: string }[];
+  onKopyala: (hedefIhaleId: string) => Promise<boolean>;
+}) {
+  const [acik, setAcik] = useState(false);
+  const [hedef, setHedef] = useState(ihaleId);
+  const [calisiyor, setCalisiyor] = useState(false);
+
+  async function kopyala() {
+    setCalisiyor(true);
+    try {
+      if (await onKopyala(hedef)) {
+        setAcik(false);
+        setHedef(ihaleId);
+      }
+    } finally {
+      setCalisiyor(false);
+    }
+  }
+
+  return (
+    <div className="relative mb-1">
+      <button type="button" className="btn-ikincil btn-kucuk" onClick={() => setAcik((a) => !a)} aria-expanded={acik}>
+        Kopyala
+      </button>
+      {acik && (
+        <div className="absolute right-0 z-20 mt-2 w-72 rounded-lg border border-cizgi bg-white p-3 shadow-lg">
+          <label className="etiket" htmlFor={`kopya-hedef-${ihaleId}`}>
+            Nereye kopyalansın?
+          </label>
+          <select id={`kopya-hedef-${ihaleId}`} value={hedef} onChange={(e) => setHedef(e.target.value)} className="girdi">
+            <option value={ihaleId}>Bu ihale</option>
+            {digerIhaleler.map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.ad}
+              </option>
+            ))}
+          </select>
+          <p className="mt-2 text-xs text-slate-500">Kalemler, fiyatlar, fire ve kâr marjı da kopyalanır.</p>
+          <div className="mt-3 flex justify-end gap-2">
+            <button type="button" className="btn-ikincil btn-kucuk" onClick={() => setAcik(false)}>
+              Vazgeç
+            </button>
+            <button type="button" className="btn-birincil btn-kucuk" onClick={kopyala} disabled={calisiyor}>
+              {calisiyor ? "Kopyalanıyor…" : "Kopyala"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

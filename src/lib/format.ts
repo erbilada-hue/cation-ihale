@@ -49,6 +49,16 @@ export function yuzdeYaz(n: number | null | undefined): string {
   return "%" + sayi.format(n);
 }
 
+/** Türkiye saatine göre YYYY-MM-DD */
+export function tarihMetni(d: Date): string {
+  return d.toLocaleDateString("sv-SE", { timeZone: "Europe/Istanbul" });
+}
+
+/** İki YYYY-MM-DD günü arasındaki fark: tarih bugünden sonraysa artı, geçtiyse eksi */
+export function kalanGun(tarih: string, bugun: string): number {
+  return Math.round((Date.parse(tarih + "T12:00:00Z") - Date.parse(bugun + "T12:00:00Z")) / 86_400_000);
+}
+
 /** 05.10.2026 */
 export function tarihYaz(d: string | Date | null | undefined): string {
   if (!d) return "—";
