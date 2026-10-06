@@ -2,6 +2,7 @@ import Link from "next/link";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
 import { bekleyenTalepleriGetir, fiyatListesiniGetir, tedarikcileriGetir } from "@/lib/veri";
 import { eskiMi } from "@/lib/tedarikci";
+import TedarikciArama from "./TedarikciArama";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ const SEKMELER = [
   { kod: "diger", ad: "Diğer" },
 ] as const;
 
-const sade = (s: string) => s.toLocaleLowerCase("tr").replace(/ı/g, "i").normalize("NFKD").replace(/[^a-z]/g, "");
+const sade = (s: string) => s.toLocaleLowerCase("tr").replace(/ı/g, "i").normalize("NFKD").replace(/[^a-z0-9]/g, "");
 
 /** Excel'den gelen "KUMAŞ", "kumas" gibi yazımları da doğru sekmeye koyar */
 function sekmesi(kategori: string): string {
@@ -25,7 +26,7 @@ function sekmesi(kategori: string): string {
   return "diger";
 }
 
-export default async function TedarikcilerSayfasi({ searchParams }: { searchParams: { tur?: string } }) {
+export default async function TedarikcilerSayfasi({ searchParams }: { searchParams: { tur?: string; ara?: string } }) {
   const secili = SEKMELER.some((s) => s.kod === searchParams.tur) ? searchParams.tur! : "";
   const supabase = sunucuIstemcisi();
   const [tumu, fiyatlar, talepler] = await Promise.all([
@@ -33,8 +34,19 @@ export default async function TedarikcilerSayfasi({ searchParams }: { searchPara
     fiyatListesiniGetir(supabase),
     bekleyenTalepleriGetir(supabase),
   ]);
-  const tedarikciler = secili ? tumu.filter((t) => sekmesi(t.kategori) === secili) : tumu;
-  const sayi = (kod: string) => (kod ? tumu.filter((t) => sekmesi(t.kategori) === kod).length : tumu.length);
+  const aranan = sade(searchParams.ara ?? "");
+  const rakamlar = (searchParams.ara ?? "").replace(/\D/g, "");
+  const aranandaki = (t: (typeof tumu)[number]) =>
+    !aranan || [t.ad, t.yetkili, t.kategori].some((x) => sade(x ?? "").includes(aranan)) || (rakamlar.length > 2 && (t.telefon ?? "").replace(/\D/g, "").includes(rakamlar));
+  const bulunan = tumu.filter(aranandaki);
+  const tedarikciler = secili ? bulunan.filter((t) => sekmesi(t.kategori) === secili) : bulunan;
+  const sayi = (kod: string) => (kod ? bulunan.filter((t) => sekmesi(t.kategori) === kod).length : bulunan.length);
+  const sekmeAdresi = (kod: string) => {
+    const p = new URLSearchParams();
+    if (kod) p.set("tur", kod);
+    if (searchParams.ara) p.set("ara", searchParams.ara);
+    return p.toString() ? `/tedarikciler?${p}` : "/tedarikciler";
+  };
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -49,11 +61,12 @@ export default async function TedarikcilerSayfasi({ searchParams }: { searchPara
       </div>
 
       {tumu.length > 0 && (
-        <div className="mb-4 flex flex-wrap gap-2">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <TedarikciArama />
           {SEKMELER.map((s) => (
             <Link
               key={s.kod}
-              href={s.kod ? `/tedarikciler?tur=${s.kod}` : "/tedarikciler"}
+              href={sekmeAdresi(s.kod)}
               className={`rounded-full border px-3 py-1.5 text-sm ${
                 secili === s.kod ? "border-brand bg-brand text-white" : "border-cizgi bg-white text-slate-600 hover:border-brand hover:text-brand"
               }`}
@@ -65,7 +78,7 @@ export default async function TedarikcilerSayfasi({ searchParams }: { searchPara
       )}
 
       {tumu.length > 0 && tedarikciler.length === 0 ? (
-        <div className="kart p-10 text-center text-slate-600">Bu grupta tedarikçi yok.</div>
+        <div className="kart p-10 text-center text-slate-600">{aranan ? "Aramaya uyan tedarikçi yok." : "Bu grupta tedarikçi yok."}</div>
       ) : tedarikciler.length === 0 ? (
         <div className="kart p-10 text-center">
           <p className="text-slate-600">Henüz tedarikçi yok.</p>
