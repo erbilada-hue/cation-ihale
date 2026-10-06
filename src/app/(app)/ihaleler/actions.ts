@@ -7,6 +7,7 @@ import {
   firmaAyarlariGetir,
   ihaleGetir,
   ihaleKurlari,
+  kalemSablonlariniGetir,
   kalemiDuzelt,
   maliyetGirdisi,
   urunleriGetir,
@@ -16,6 +17,10 @@ import { EksikBilgiHatasi, teklifOlustur } from "@/lib/maliyet";
 import { PARA_BIRIMLERI, SEGMENTLER, URUN_GRUPLARI } from "@/lib/sabitler";
 import type { IhaleDosyasi, KalemSablonu, UrunKalemi, UrunKalemli } from "@/lib/tipler";
 import { SARTNAME_KLASORU } from "@/lib/dosya";
+import { belgeyiHazirla } from "@/lib/belgeMetni";
+import { yapilandirilmisOku } from "@/lib/ai";
+import { ANALIZ_SISTEM_ISTEMI, AnalizSemasi, analiziEslestir, kutuphaneMetni, type AnalizSonucu } from "@/lib/sartnameAnalizi";
+import type { BetaContentBlockParam } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 
 export type Sonuc<T = null> = { hata: string; veri?: undefined } | { hata?: undefined; veri: T };
 
@@ -406,4 +411,117 @@ export async function dosyaSil(dosyaId: string): Promise<Sonuc> {
 // Türkiye saatine göre YYYY-MM-DD
 function tarihMetni(d: Date): string {
   return d.toLocaleDateString("sv-SE", { timeZone: "Europe/Istanbul" });
+}
+
+// ---------------------------------------------------------------------------
+// Şartname analizi (yapay zekâ). Analiz hiçbir şey kaydetmez; kullanıcı özeti onaylayınca analizUygula çalışır.
+// ---------------------------------------------------------------------------
+
+export async function sartnameAnalizEt(dosyaId: string): Promise<Sonuc<AnalizSonucu & { dosyaAdi: string }>> {
+  const supabase = sunucuIstemcisi();
+  const { data } = await supabase.from("ihale_dosyalari").select("*").eq("id", dosyaId).maybeSingle();
+  const dosya = data as IhaleDosyasi | null;
+  if (!dosya) return { hata: "Dosya bulunamadı." };
+  const { data: blob, error } = await supabase.storage.from(SARTNAME_KLASORU).download(dosya.yol);
+  if (error || !blob) return { hata: "Dosya indirilemedi: " + (error?.message ?? "") };
+  const hazir = belgeyiHazirla(Buffer.from(await blob.arrayBuffer()), dosya.dosya_adi);
+  if (hazir.hata !== undefined) return { hata: hazir.hata };
+
+  const [sablonlar, firma] = await Promise.all([kalemSablonlariniGetir(supabase), firmaAyarlariGetir(supabase)]);
+  const b = hazir.icerik;
+  const belge: BetaContentBlockParam =
+    b.tur === "pdf"
+      ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: b.base64 }, title: dosya.dosya_adi }
+      : b.tur === "gorsel"
+        ? { type: "image", source: { type: "base64", media_type: b.mediaType, data: b.base64 } }
+        : { type: "document", source: { type: "text", media_type: "text/plain", data: b.metin }, title: dosya.dosya_adi };
+  const s = await yapilandirilmisOku({
+    sistem: ANALIZ_SISTEM_ISTEMI,
+    icerik: [
+      belge,
+      {
+        type: "text",
+        text: `Dosya adı: ${dosya.dosya_adi}\nFirmanın adresi: ${firma?.adres || "belirtilmemiş"}\n\nÜrün grupları ve opsiyonel kalemleri:\n${kutuphaneMetni(sablonlar)}\n\nYukarıdaki dosyayı analiz et.`,
+      },
+    ],
+    sema: AnalizSemasi,
+    efor: "low",
+  });
+  if (s.hata !== undefined) return { hata: s.hata };
+  const sonuc = analiziEslestir(s.veri, sablonlar);
+  if (sonuc.urunler.length === 0) {
+    return { hata: "Dosyada ürün bulunamadı. Ürünleri elle ekleyebilirsiniz." };
+  }
+  return { veri: { ...sonuc, dosyaAdi: dosya.dosya_adi } };
+}
+
+export type AnalizOnayi = {
+  kaynak: "sartname" | "segment";
+  segment: string | null;
+  kaynakDosya: string;
+  ihale: { musteri: string; teslim_yeri: string; termin: string; son_teklif_tarihi: string };
+  urunler: { urun_grubu: string; ad: string; adet: number; aciklama: string; opsiyonelIdler: string[] }[];
+};
+
+/** Kullanıcının onayladığı analiz özetiyle ürünleri ve kalemleri oluşturur. */
+export async function analizUygula(ihaleId: string, g: AnalizOnayi): Promise<Sonuc<UrunKalemli[]>> {
+  if (g.kaynak === "segment" && !SEGMENTLER.includes(g.segment as (typeof SEGMENTLER)[number])) {
+    return { hata: "Teknik şartname yoksa kalite segmentini seçmeniz zorunludur." };
+  }
+  if (g.urunler.length === 0) return { hata: "En az bir ürün seçin." };
+  for (const u of g.urunler) {
+    if (!Number.isInteger(u.adet) || u.adet <= 0) return { hata: `"${u.ad}" için adet girin.` };
+  }
+
+  const supabase = sunucuIstemcisi();
+  const ihale = await ihaleGetir(supabase, ihaleId);
+  if (!ihale) return { hata: "İhale bulunamadı." };
+  // Kullanıcının daha önce girdiği bilgilerin üzerine yazılmaz; sadece boş alanlar doldurulur
+  const guncelleme: Record<string, string | null> = {
+    kaynak: g.kaynak,
+    segment: g.kaynak === "segment" ? g.segment : null,
+    kaynak_dosya: g.kaynakDosya,
+  };
+  if (!ihale.musteri && g.ihale.musteri) guncelleme.musteri = g.ihale.musteri;
+  if (!ihale.teslim_yeri && g.ihale.teslim_yeri) guncelleme.teslim_yeri = g.ihale.teslim_yeri;
+  if (!ihale.termin && g.ihale.termin) guncelleme.termin = g.ihale.termin;
+  if (!ihale.son_teklif_tarihi && /^\d{4}-\d{2}-\d{2}$/.test(g.ihale.son_teklif_tarihi)) {
+    guncelleme.son_teklif_tarihi = g.ihale.son_teklif_tarihi;
+  }
+  const { error } = await supabase.from("ihaleler").update(guncelleme).eq("id", ihaleId);
+  if (error) return { hata: "İhale güncellenemedi: " + error.message };
+
+  const sablonlar = await kalemSablonlariniGetir(supabase);
+  const eklenen: UrunKalemli[] = [];
+  for (const u of g.urunler) {
+    const s = await urunEkle(ihaleId, { urun_grubu: u.urun_grubu, ad: u.ad, adet: u.adet, aciklama: u.aciklama });
+    if (s.hata !== undefined) {
+      return { hata: `${eklenen.length} ürün eklendi, "${u.ad}" eklenemedi: ${s.hata}` };
+    }
+    const ops = sablonlar.filter((t) => u.opsiyonelIdler.includes(t.id) && t.urun_grubu === u.urun_grubu && !t.zorunlu);
+    let kalemler = s.veri.urun_kalemleri;
+    if (ops.length > 0) {
+      const { data, error: kHata } = await supabase
+        .from("urun_kalemleri")
+        .insert(
+          ops.map((t, i) => ({
+            urun_id: s.veri.id,
+            sablon_id: t.id,
+            ad: t.ad,
+            zorunlu: false,
+            birim: t.birim,
+            kullanim: t.varsayilan_kullanim,
+            birim_fiyat: t.varsayilan_birim_fiyat,
+            sira: kalemler.length + i,
+          })),
+        )
+        .select("*");
+      if (kHata) return { hata: `"${u.ad}" için opsiyonel kalemler eklenemedi: ${kHata.message}` };
+      kalemler = [...kalemler, ...(data as UrunKalemi[]).map(kalemiDuzelt)];
+    }
+    eklenen.push({ ...s.veri, urun_kalemleri: kalemler });
+  }
+  revalidatePath(`/ihaleler/${ihaleId}`);
+  revalidatePath("/ihaleler");
+  return { veri: eklenen };
 }

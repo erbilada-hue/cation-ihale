@@ -13,10 +13,12 @@ type Props = {
   ilkDosyalar: IhaleDosyasi[];
   /** Ürün kartı içinde daha sade görünüm */
   kompakt?: boolean;
+  /** Verilirse her dosyada "Yapay zekâ ile analiz et" butonu çıkar */
+  onAnaliz?: (d: IhaleDosyasi) => void;
 };
 
 /** Teknik şartname dosyaları (PDF, Word, Excel): yükle, aç, sil. */
-export function SartnameDosyalari({ ihaleId, urunId, ilkDosyalar, kompakt }: Props) {
+export function SartnameDosyalari({ ihaleId, urunId, ilkDosyalar, kompakt, onAnaliz }: Props) {
   const [dosyalar, setDosyalar] = useState(ilkDosyalar);
   const [yukleniyor, setYukleniyor] = useState<string | null>(null);
   const [hata, setHata] = useState<string | null>(null);
@@ -86,6 +88,11 @@ export function SartnameDosyalari({ ihaleId, urunId, ilkDosyalar, kompakt }: Pro
                 {d.dosya_adi}
               </a>
               <span className="rakam text-xs text-slate-500">{boyutYaz(d.boyut)}</span>
+              {onAnaliz && ANALIZ_EDILEBILIR.test(d.dosya_adi) && (
+                <button type="button" className="btn-ikincil btn-kucuk" onClick={() => onAnaliz(d)}>
+                  Yapay zekâ ile analiz et
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => sil(d)}
@@ -122,6 +129,8 @@ export function SartnameDosyalari({ ihaleId, urunId, ilkDosyalar, kompakt }: Pro
     </div>
   );
 }
+
+const ANALIZ_EDILEBILIR = /\.(pdf|docx|odt|xlsx|xls|ods|csv|txt|jpe?g|png)$/i;
 
 function uzanti(ad: string): string {
   const i = ad.lastIndexOf(".");

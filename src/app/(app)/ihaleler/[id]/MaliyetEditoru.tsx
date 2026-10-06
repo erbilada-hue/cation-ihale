@@ -9,9 +9,10 @@ import { BIRIMLER, PARA_BIRIMLERI, URUN_GRUPLARI, urunGrubuAdi } from "@/lib/sab
 import { useKayit } from "@/lib/useKayit";
 import { SayiGirdisi } from "@/components/SayiGirdisi";
 import { SartnameDosyalari } from "@/components/SartnameDosyalari";
+import { SartnameAnalizi } from "@/components/SartnameAnalizi";
 import { eskiMi, gunFarki, kalemAnahtari, kalemleEslesir, otomatikFiyat } from "@/lib/tedarikci";
 import { fiyatYaz } from "@/lib/format";
-import type { IhaleDosyasi, KalemSablonu, TedarikciFiyatiAdli, Teklif, UrunKalemi, UrunKalemli } from "@/lib/tipler";
+import type { IhaleDosyasi, KalemSablonu, SegmentSablonu, TedarikciFiyatiAdli, Teklif, UrunKalemi, UrunKalemli } from "@/lib/tipler";
 import {
   ihaleKurGuncelle,
   kalemEkle,
@@ -32,14 +33,29 @@ type Props = {
   dosyalar: IhaleDosyasi[];
   /** Tedarikçi fiyat listesi; kalemlere fiyat seçmek için */
   fiyatListesi: TedarikciFiyatiAdli[];
+  segmentler: SegmentSablonu[];
+  /** İhaleyi açarken kullanıcının seçtiği segment */
+  ihaleSegmenti: string | null;
 };
 
-export function MaliyetEditoru({ ihaleId, ilkKurlar, ilkUrunler, sablonlar, teklifler, dosyalar, fiyatListesi }: Props) {
+export function MaliyetEditoru({
+  ihaleId,
+  ilkKurlar,
+  ilkUrunler,
+  sablonlar,
+  teklifler,
+  dosyalar,
+  fiyatListesi,
+  segmentler,
+  ihaleSegmenti,
+}: Props) {
   const router = useRouter();
   const [urunler, setUrunler] = useState(ilkUrunler);
   const [kurlar, setKurlar] = useState(ilkKurlar);
   const [islemHatasi, setIslemHatasi] = useState<string | null>(null);
   const [teklifHazirlaniyor, setTeklifHazirlaniyor] = useState(false);
+  const [analizDosyasi, setAnalizDosyasi] = useState<IhaleDosyasi | null>(null);
+  const [analizMesaji, setAnalizMesaji] = useState<string | null>(null);
   const kayit = useKayit();
 
   const sonuclar = useMemo(
@@ -224,8 +240,41 @@ export function MaliyetEditoru({ ihaleId, ilkKurlar, ilkUrunler, sablonlar, tekl
       </section>
 
       <section className="kart px-6 py-4">
-        <h2 className="mb-3 font-semibold text-brand-dark">Teknik şartname ve dosyalar</h2>
-        <SartnameDosyalari ihaleId={ihaleId} urunId={null} ilkDosyalar={dosyalar.filter((d) => !d.urun_id)} />
+        <h2 className="font-semibold text-brand-dark">Teknik şartname ve dosyalar</h2>
+        <p className="mb-3 text-sm text-slate-500">
+          Müşterinin dosyasını yükleyip &quot;Yapay zekâ ile analiz et&quot;e basın; ürünler, adetler ve kalemler çıkarılır, siz
+          onaylayınca maliyet tablosu oluşur.
+        </p>
+        <SartnameDosyalari
+          ihaleId={ihaleId}
+          urunId={null}
+          ilkDosyalar={dosyalar.filter((d) => !d.urun_id)}
+          onAnaliz={(d) => {
+            setAnalizMesaji(null);
+            setAnalizDosyasi(d);
+          }}
+        />
+        {analizDosyasi && (
+          <SartnameAnalizi
+            key={analizDosyasi.id}
+            ihaleId={ihaleId}
+            dosya={analizDosyasi}
+            sablonlar={sablonlar}
+            segmentler={segmentler}
+            oncekiSegment={ihaleSegmenti}
+            mevcutUrunSayisi={urunler.length}
+            onUygulandi={(yeni) => {
+              setUrunler((l) => [...l, ...yeni]);
+              setAnalizDosyasi(null);
+              setAnalizMesaji(
+                `${yeni.length} ürün ve kalemleri oluşturuldu. Fiyat listesinde karşılığı olan kalemler otomatik doldurulabilir; kullanım miktarlarını kontrol edin.`,
+              );
+              router.refresh();
+            }}
+            onKapat={() => setAnalizDosyasi(null)}
+          />
+        )}
+        {analizMesaji && <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{analizMesaji}</p>}
       </section>
 
       {sonuclar.map(({ urun, sonuc }) => (
