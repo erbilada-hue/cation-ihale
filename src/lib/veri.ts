@@ -144,14 +144,22 @@ function fiyatiDuzelt<T extends TedarikciFiyati>(f: T): T {
 /** Tüm fiyat listesi, tedarikçi adıyla */
 export async function fiyatListesiniGetir(supabase: Supabase, tedarikciId?: string) {
   // Supabase bir seferde en fazla 1000 satır döndürür; liste daha uzun olabilir
-  const data: unknown[] = [];
-  for (let bas = 0; ; bas += 1000) {
-    let sorgu = supabase.from("tedarikci_fiyatlari").select("*, tedarikciler(ad)").order("kalem_adi").order("id");
-    if (tedarikciId) sorgu = sorgu.eq("tedarikci_id", tedarikciId);
-    const { data: sayfa } = await sorgu.range(bas, bas + 999);
-    data.push(...(sayfa ?? []));
-    if (!sayfa || sayfa.length < 1000) break;
-  }
+  // İlk sayfa toplam satır sayısını da getirir; kalan sayfalar aynı anda istenir
+  const sorgu = (bas: number, sayac = false) => {
+    let q = supabase
+      .from("tedarikci_fiyatlari")
+      .select("*, tedarikciler(ad)", sayac ? { count: "exact" } : undefined)
+      .order("kalem_adi")
+      .order("id");
+    if (tedarikciId) q = q.eq("tedarikci_id", tedarikciId);
+    return q.range(bas, bas + 999);
+  };
+  const ilk = await sorgu(0, true);
+  const toplam = ilk.count ?? ilk.data?.length ?? 0;
+  const kalan = await Promise.all(
+    Array.from({ length: Math.max(0, Math.ceil(toplam / 1000) - 1) }, (_, i) => sorgu((i + 1) * 1000)),
+  );
+  const data: unknown[] = [...(ilk.data ?? []), ...kalan.flatMap((s) => s.data ?? [])];
   return (data as (TedarikciFiyati & { tedarikciler: { ad: string } | null })[]).map(
     ({ tedarikciler, ...f }): TedarikciFiyatiAdli => fiyatiDuzelt({ ...f, tedarikci_adi: tedarikciler?.ad ?? "" }),
   );
