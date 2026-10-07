@@ -3,9 +3,21 @@ import { adetYaz, tarihYaz, tutarYaz, yuzdeYaz } from "@/lib/format";
 import type { FirmaAyarlari, Ihale, Teklif } from "@/lib/tipler";
 import { RENK, ortakStil as o } from "./ortak";
 
+// Firma bilgileri 9 punto; bir satır yaklaşık 11,5 pt yer kaplar
+const SATIR_YUKSEKLIGI = 11.5;
+/** 260 pt genişlikte 9 puntoda bir satıra sığan yaklaşık karakter sayısı */
+const SATIR_KARAKTERI = 52;
+
+/** Sağdaki firma bilgileri bloğunun yaklaşık yüksekliği; logo bu yüksekliğe büyütülür */
+function firmaBlokYuksekligi(firma: FirmaAyarlari | null): number {
+  const metinler = [firma?.firma_adi, firma?.adres, firma?.telefon && "Tel: " + firma.telefon, firma?.eposta, firma?.web];
+  const satir = metinler.reduce((t, m) => t + (m ? Math.ceil(m.length / SATIR_KARAKTERI) : 0), 0);
+  return Math.max(48, satir * SATIR_YUKSEKLIGI);
+}
+
 const s = StyleSheet.create({
   ust: { flexDirection: "row", justifyContent: "space-between", marginBottom: 24 },
-  logo: { maxHeight: 48, maxWidth: 160, objectFit: "contain" },
+  logo: { objectFit: "contain", objectPositionX: 0 },
   firmaAdi: { fontSize: 14, fontWeight: 700, color: RENK.lacivert },
   firma: { alignItems: "flex-end", maxWidth: 260 },
   baslik: { fontSize: 18, fontWeight: 700, color: RENK.lacivert, marginBottom: 12 },
@@ -124,7 +136,7 @@ export function MusteriTeklifiPdf({ teklif, ihale, firma }: { teklif: Teklif; ih
           <View>
             {firma?.logo_data_url ? (
               // eslint-disable-next-line jsx-a11y/alt-text
-              <Image src={firma.logo_data_url} style={s.logo} />
+              <Image src={firma.logo_data_url} style={[s.logo, { height: firmaBlokYuksekligi(firma), maxWidth: 240 }]} />
             ) : (
               <Text style={s.firmaAdi}>{firma?.firma_adi || "CATION"}</Text>
             )}

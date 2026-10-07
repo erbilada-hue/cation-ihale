@@ -38,6 +38,7 @@ export function urunuDuzelt(u: UrunKalemli): UrunKalemli {
     fire_orani: sayi(u.fire_orani),
     kar_marji: sayi(u.kar_marji),
     kdv_orani: Number(u.kdv_orani),
+    yuvarlanmis_fiyat: sayi(u.yuvarlanmis_fiyat ?? null),
     urun_kalemleri: (u.urun_kalemleri ?? [])
       .map(kalemiDuzelt)
       .sort((a, b) => a.sira - b.sira),

@@ -95,6 +95,9 @@ export type IhaleUrunu = {
   kar_marji: number | null;
   kdv_orani: number;
   sira: number;
+  /** Kullanıcının yuvarladığı teklif birim fiyatı (KDV hariç), yuvarlanmis_para_birimi cinsinden */
+  yuvarlanmis_fiyat?: number | null;
+  yuvarlanmis_para_birimi?: "TRY" | "USD" | "EUR" | null;
 };
 
 export type UrunKalemi = {

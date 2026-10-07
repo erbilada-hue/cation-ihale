@@ -32,7 +32,7 @@ export default async function GenelBakis() {
     supabase.from("gorevler").select("*").order("created_at", { ascending: false }).limit(200),
     supabase
       .from("ihaleler")
-      .select("usd_kuru, eur_kuru, ihale_urunleri(*, urun_kalemleri(*))")
+      .select("usd_kuru, eur_kuru, teklif_para_birimi, ihale_urunleri(*, urun_kalemleri(*))")
       .eq("sonuc", "olumlu")
       .gte("sonuc_tarihi", buAy.bas)
       .lte("sonuc_tarihi", buAy.bit),
@@ -48,13 +48,14 @@ export default async function GenelBakis() {
   const buHafta = aktif.filter((i) => i.son_teklif_tarihi && kalanGun(i.son_teklif_tarihi, bugun) >= 0 && kalanGun(i.son_teklif_tarihi, bugun) <= 7);
   const onayBekleyen = aktif.filter((i) => teklifVerilen.has(i.id));
   const enUzunBekleme = talepler.reduce((m, t) => Math.max(m, gunFarki(t.gonderim_zamani)), 0);
-  const kazanilan = (kazanilanSorgu.data ?? []) as { usd_kuru: number | null; eur_kuru: number | null; ihale_urunleri: UrunKalemli[] }[];
+  const kazanilan = (kazanilanSorgu.data ?? []) as { usd_kuru: number | null; eur_kuru: number | null; teklif_para_birimi: "TRY" | "USD" | "EUR" | null; ihale_urunleri: UrunKalemli[] }[];
   const kazanilanTutar = kazanilan.reduce(
     (t, i) =>
       t +
       ihaleToplami(
         i.ihale_urunleri.map(urunuDuzelt),
         ihaleKurlari({ usd_kuru: i.usd_kuru == null ? null : Number(i.usd_kuru), eur_kuru: i.eur_kuru == null ? null : Number(i.eur_kuru) }),
+        i.teklif_para_birimi ?? "TRY",
       ).teklif,
     0,
   );

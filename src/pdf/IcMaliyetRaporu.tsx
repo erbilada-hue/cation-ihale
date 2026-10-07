@@ -60,7 +60,7 @@ export function IcMaliyetRaporuPdf({
   tedarikciAdlari?: Record<string, string>;
 }) {
   const kurlar = ihaleKurlari(ihale);
-  const hesaplar = urunler.map((u) => ({ u, h: hesaplaUrun(maliyetGirdisi(u, kurlar)) }));
+  const hesaplar = urunler.map((u) => ({ u, h: hesaplaUrun(maliyetGirdisi(u, kurlar, ihale.teklif_para_birimi ?? "TRY")) }));
   const dovizli = new Set(urunler.flatMap((u) => u.urun_kalemleri.map((k) => k.para_birimi)));
   const kurMetni = (["USD", "EUR"] as const)
     .filter((p) => dovizli.has(p))

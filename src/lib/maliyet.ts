@@ -20,6 +20,11 @@ export type UrunGirdi = {
   karMarji: number | null;
   kdvOrani: number;
   kalemler: KalemGirdi[];
+  /**
+   * Kullanıcının yuvarladığı teklif birim fiyatının TL karşılığı (ör. 666,60 yerine 670).
+   * Girildiyse teklif fiyatı budur; kâr = bu fiyat − fire dahil maliyet.
+   */
+  yuvarlanmisTeklif?: number | null;
 };
 
 export type BirimTutarlar = {
@@ -42,6 +47,12 @@ export type UrunSonuc = {
   /** Fire ve kâr marjı girildi mi; girilmediyse teklif fiyatı hesaplanmaz */
   fireEksik: boolean;
   karEksik: boolean;
+  /** Kâr marjından hesaplanan teklif fiyatı (yuvarlamadan önce) */
+  hesaplananTeklif: number | null;
+  /** Teklif fiyatı kullanıcının yuvarladığı fiyat mı */
+  yuvarlandi: boolean;
+  /** Yuvarlanmış fiyata göre gerçek kâr marjı (%) */
+  gercekMarj: number | null;
 };
 
 /** Kalemin 1 adet ürün için TL tutarı */
@@ -58,10 +69,12 @@ export function hesaplaUrun(u: UrunGirdi): UrunSonuc {
   const kurEksikKalemSayisi = u.kalemler.filter((k) => k.kur === null).length;
 
   const fireDahil = u.fireOrani == null ? null : ham * (1 + u.fireOrani / 100);
-  const teklif =
+  const hesaplananTeklif =
     fireDahil == null || u.karMarji == null || kurEksikKalemSayisi > 0
       ? null
       : kurusaYuvarla(fireDahil * (1 + u.karMarji / 100));
+  const yuvarlandi = u.yuvarlanmisTeklif != null && fireDahil != null && kurEksikKalemSayisi === 0;
+  const teklif = yuvarlandi ? kurusaYuvarla(u.yuvarlanmisTeklif!) : hesaplananTeklif;
   const kdvDahil = teklif == null ? null : teklif * (1 + u.kdvOrani / 100);
 
   const birim: BirimTutarlar = {
@@ -81,6 +94,9 @@ export function hesaplaUrun(u: UrunGirdi): UrunSonuc {
     kurEksikKalemSayisi,
     fireEksik: u.fireOrani == null,
     karEksik: u.karMarji == null,
+    hesaplananTeklif,
+    yuvarlandi,
+    gercekMarj: teklif == null || fireDahil == null || fireDahil <= 0 ? null : (teklif / fireDahil - 1) * 100,
   };
 }
 
@@ -102,11 +118,37 @@ export function kurusaYuvarla(n: number): number {
 }
 
 // ---------------------------------------------------------------------------
+// Teklif fiyatını yuvarlama önerileri
+// ---------------------------------------------------------------------------
+
+/** Fiyatın büyüklüğüne göre yuvarlama adımı: 666,60 → 5'er (665 / 670), 48,3 → 1'er, 2,34 → 0,05'er */
+export function yuvarlamaAdimi(n: number): number {
+  if (n >= 1000) return 10;
+  if (n >= 100) return 5;
+  if (n >= 10) return 1;
+  if (n >= 1) return 0.05;
+  return 0.01;
+}
+
+/** Hesaplanan fiyatın bir alt ve bir üst yuvarlak karşılığı */
+export function yuvarlamaSecenekleri(n: number): number[] {
+  const adim = yuvarlamaAdimi(n);
+  const asagi = kurusaYuvarla(Math.floor(n / adim + 1e-9) * adim);
+  const yukari = kurusaYuvarla(Math.ceil(n / adim - 1e-9) * adim);
+  return Array.from(new Set([asagi, yukari])).filter((x) => x > 0 && x !== kurusaYuvarla(n));
+}
+
+// ---------------------------------------------------------------------------
 // Müşteri teklifi: birim fiyat kuruşa yuvarlanır, toplamlar yuvarlanmış birim
 // fiyattan hesaplanır ki müşteri kendi hesabıyla aynı sonucu bulsun.
 // ---------------------------------------------------------------------------
 
-export type TeklifSatirGirdi = UrunGirdi & { ad: string; aciklama?: string };
+export type TeklifSatirGirdi = UrunGirdi & {
+  ad: string;
+  aciklama?: string;
+  /** Kullanıcının teklif para biriminde yuvarladığı birim fiyat; girildiyse kurla çevrilmeden aynen yazılır */
+  musteriFiyati?: number | null;
+};
 
 export type TeklifSatiri = {
   ad: string;
@@ -163,7 +205,10 @@ export function teklifOlustur(
       throw new EksikBilgiHatasi(`"${u.ad}" için ${eksik} girilmemiş.`);
     }
     // Dövizli teklifte TL teklif fiyatı ihalenin kuruyla çevrilir ve sente yuvarlanır
-    const birimFiyat = kurusaYuvarla(dovizli ? s.birim.teklif / secenek.kur! : s.birim.teklif);
+    const birimFiyat =
+      s.yuvarlandi && u.musteriFiyati != null
+        ? kurusaYuvarla(u.musteriFiyati)
+        : kurusaYuvarla(dovizli ? s.birim.teklif / secenek.kur! : s.birim.teklif);
     return {
       ad: u.ad,
       aciklama: u.aciklama ?? "",

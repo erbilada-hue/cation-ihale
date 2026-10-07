@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { EksikBilgiHatasi, hesaplaUrun, teklifOlustur } from "./maliyet";
+import { EksikBilgiHatasi, hesaplaUrun, teklifOlustur, yuvarlamaSecenekleri } from "./maliyet";
+import { maliyetGirdisi } from "./maliyetGirdisi";
+import type { UrunKalemli } from "./tipler";
 
 const tisort = {
   adet: 4000,
@@ -166,5 +168,59 @@ describe("dövizli ve ihracat teklifi", () => {
 
   it("dövizli teklifte kur girilmemişse hata verir", () => {
     expect(() => teklifOlustur([polo], { paraBirimi: "EUR", kur: null, ihracat: true })).toThrow(/euro kurunu/);
+  });
+});
+
+describe("teklif fiyatını yuvarlama", () => {
+  // Ham 457,83 · fire %4 → 476,1432 · kâr %40 → 666,60
+  const gomlek = {
+    adet: 60,
+    fireOrani: 4,
+    karMarji: 40,
+    kdvOrani: 10,
+    kalemler: [{ kullanim: 1, birimFiyat: 457.83 }],
+  };
+
+  it("hesaplanan fiyata göre alt ve üst yuvarlak fiyat önerir", () => {
+    expect(hesaplaUrun(gomlek).birim.teklif).toBe(666.6);
+    expect(yuvarlamaSecenekleri(666.6)).toEqual([665, 670]);
+    expect(yuvarlamaSecenekleri(48.37)).toEqual([48, 49]);
+    expect(yuvarlamaSecenekleri(2.34)).toEqual([2.3, 2.35]);
+    expect(yuvarlamaSecenekleri(670)).toEqual([]);
+  });
+
+  it("yuvarlanmış fiyatla kâr ve KDV yeniden hesaplanır", () => {
+    const s = hesaplaUrun({ ...gomlek, yuvarlanmisTeklif: 670 });
+    expect(s.yuvarlandi).toBe(true);
+    expect(s.hesaplananTeklif).toBe(666.6);
+    expect(s.birim.teklif).toBe(670);
+    expect(s.birim.karTutari).toBeCloseTo(670 - 476.1432, 4);
+    expect(s.birim.kdvDahil).toBeCloseTo(737, 6);
+    expect(s.toplam.teklif).toBe(40200);
+    expect(s.gercekMarj).toBeCloseTo(40.714, 2);
+  });
+
+  it("müşteri teklifinde yuvarlanmış fiyat yazılır", () => {
+    const t = teklifOlustur([{ ...gomlek, ad: "Gömlek", yuvarlanmisTeklif: 665, musteriFiyati: 665 }]);
+    expect(t.satirlar[0].birimFiyat).toBe(665);
+    expect(t.araToplam).toBe(39900);
+    expect(t.genelToplam).toBe(43890);
+  });
+
+  it("euro teklifte yuvarlanmış euro fiyat kurla çevrilmeden yazılır", () => {
+    const urun = {
+      id: "u", ihale_id: "i", urun_grubu: "gomlek", ad: "Gömlek", aciklama: "", sira: 0,
+      adet: 60, fire_orani: 4, kar_marji: 40, kdv_orani: 0,
+      yuvarlanmis_fiyat: 13.5, yuvarlanmis_para_birimi: "EUR",
+      urun_kalemleri: [{ id: "k", urun_id: "u", ad: "Kumaş", kullanim: 1, birim_fiyat: 457.83, para_birimi: "TRY", sira: 0 }],
+    } as unknown as UrunKalemli;
+    const kurlar = { USD: null, EUR: 48.8669 };
+    const girdi = maliyetGirdisi(urun, kurlar, "EUR");
+    expect(girdi.yuvarlanmisTeklif).toBeCloseTo(13.5 * 48.8669, 6);
+    const t = teklifOlustur([{ ...girdi, ad: "Gömlek", musteriFiyati: 13.5 }], { paraBirimi: "EUR", kur: 48.8669, ihracat: true });
+    expect(t.satirlar[0].birimFiyat).toBe(13.5);
+    expect(t.araToplam).toBe(810);
+    // Teklif para birimi TL'ye dönerse eski euro yuvarlaması kullanılmaz
+    expect(maliyetGirdisi(urun, kurlar, "TRY").yuvarlanmisTeklif).toBeNull();
   });
 });

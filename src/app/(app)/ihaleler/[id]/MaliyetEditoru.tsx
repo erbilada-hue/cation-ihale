@@ -2,9 +2,9 @@
 
 import { Fragment, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { hesaplaUrun, kalemTutari } from "@/lib/maliyet";
-import { kalemGirdisi, maliyetGirdisi, type Kurlar } from "@/lib/maliyetGirdisi";
-import { adetYaz, paraYaz, tarihYaz, tutarYaz } from "@/lib/format";
+import { hesaplaUrun, kalemTutari, yuvarlamaSecenekleri } from "@/lib/maliyet";
+import { kalemGirdisi, maliyetGirdisi, yuvarlanmisFiyat, type Kurlar } from "@/lib/maliyetGirdisi";
+import { adetYaz, paraYaz, sayiOku, tarihYaz, tutarYaz } from "@/lib/format";
 import { BIRIMLER, HAZIR_URUN, PARA_BIRIMLERI, URUN_GRUPLARI, teslimKalemleri, urunGrubuAdi } from "@/lib/sabitler";
 import { useKayit } from "@/lib/useKayit";
 import { SayiGirdisi } from "@/components/SayiGirdisi";
@@ -58,6 +58,18 @@ function teklifParasina(tl: number | null, ayar: TeklifAyari, kurlar: Kurlar): n
   return kur ? tl / kur : null;
 }
 
+/** Müşteriye yazılacak birim fiyat (teklif para biriminde): yuvarlandıysa aynen, değilse kurla çevrilip kuruşa yuvarlanır */
+function musteriBirimFiyati(
+  urun: UrunKalemli,
+  sonuc: ReturnType<typeof hesaplaUrun>,
+  ayar: TeklifAyari,
+  kurlar: Kurlar,
+): number | null {
+  if (sonuc.yuvarlandi) return yuvarlanmisFiyat(urun, ayar.paraBirimi);
+  const n = teklifParasina(sonuc.birim.teklif, ayar, kurlar);
+  return n == null ? null : Math.round(n * 100) / 100;
+}
+
 export function MaliyetEditoru({
   ihaleId,
   ilkKurlar,
@@ -98,8 +110,8 @@ export function MaliyetEditoru({
   const kayit = useKayit();
 
   const sonuclar = useMemo(
-    () => urunler.map((u) => ({ urun: u, sonuc: hesaplaUrun(maliyetGirdisi(u, kurlar)) })),
-    [urunler, kurlar],
+    () => urunler.map((u) => ({ urun: u, sonuc: hesaplaUrun(maliyetGirdisi(u, kurlar, teklifAyari.paraBirimi)) })),
+    [urunler, kurlar, teklifAyari.paraBirimi],
   );
   const dovizliParaBirimleri = new Set(
     urunler.flatMap((u) => u.urun_kalemleri.map((k) => k.para_birimi)).filter((p) => p !== "TRY"),
@@ -424,7 +436,7 @@ export function MaliyetEditoru({
                   {tutarYaz(
                     sonuclar.reduce(
                       (t, { urun, sonuc }) =>
-                        t + Math.round((teklifParasina(sonuc.birim.teklif, teklifAyari, kurlar) ?? 0) * 100) / 100 * urun.adet,
+                        t + (musteriBirimFiyati(urun, sonuc, teklifAyari, kurlar) ?? 0) * urun.adet,
                       0,
                     ),
                     teklifAyari.paraBirimi,
@@ -548,7 +560,14 @@ function UrunKarti({
   const eksikTeslimKalemleri = teslimKalemleri(teklifAyari.teslimSekli).filter(
     (t) => !urun.urun_kalemleri.some((k) => kalemAnahtari(k.ad).includes(t.kelime)),
   );
-  const dovizTeklif = teklifAyari.paraBirimi !== "TRY" ? teklifParasina(sonuc.birim.teklif, teklifAyari, kurlar) : null;
+  const dovizTeklif = teklifAyari.paraBirimi !== "TRY" ? musteriBirimFiyati(urun, sonuc, teklifAyari, kurlar) : null;
+  // Kâr marjı değişince fiyat yeniden hesaplansın diye yuvarlama kaldırılır
+  const marjDegistir = (n: number | null) =>
+    onUrun(
+      urun.yuvarlanmis_fiyat != null
+        ? { kar_marji: n, yuvarlanmis_fiyat: null, yuvarlanmis_para_birimi: null }
+        : { kar_marji: n },
+    );
   const b = sonuc.birim;
   const t = sonuc.toplam;
   const [acikListe, setAcikListe] = useState<string | null>(null);
@@ -851,7 +870,7 @@ function UrunKarti({
             <div className="flex items-center justify-between gap-2">
               <span className="font-medium text-brand-dark">Kâr marjı</span>
               <div className="w-24">
-                <SayiGirdisi deger={urun.kar_marji} onDeger={(n) => onUrun({ kar_marji: n })} sonEk="%" className="girdi-sayi py-1" ariaLabel="Kâr marjı" placeholder="gir" />
+                <SayiGirdisi deger={urun.kar_marji} onDeger={marjDegistir} sonEk="%" className="girdi-sayi py-1" ariaLabel="Kâr marjı" placeholder="gir" />
               </div>
             </div>
             <input
@@ -861,7 +880,7 @@ function UrunKarti({
               step={0.5}
               aria-label="Kâr marjı kaydırıcı"
               value={urun.kar_marji ?? 0}
-              onChange={(e) => onUrun({ kar_marji: Number(e.target.value) })}
+              onChange={(e) => marjDegistir(Number(e.target.value))}
               className={`mt-2 w-full accent-brand ${urun.kar_marji == null ? "opacity-40" : ""}`}
             />
             {urun.kar_marji == null && (
@@ -879,7 +898,7 @@ function UrunKarti({
                 tutar: kalemTutari(kalemGirdisi(k, kurlar)),
                 paraBirimi: k.para_birimi,
               }))}
-              onUygula={(n) => onUrun({ kar_marji: n })}
+              onUygula={marjDegistir}
             />
           </div>
           <Satir ad="Kâr" birim={b.karTutari} toplam={t.karTutari} />
@@ -892,7 +911,7 @@ function UrunKarti({
                 <div className="text-xs text-slate-500">Müşteriye ({teklifAyari.paraBirimi})</div>
                 {dovizTeklif != null ? (
                   <div className="rakam text-lg font-semibold text-brand">
-                    {tutarYaz(Math.round(dovizTeklif * 100) / 100, teklifAyari.paraBirimi)}
+                    {tutarYaz(dovizTeklif, teklifAyari.paraBirimi)}
                   </div>
                 ) : (
                   <div className="text-xs text-amber-700">
@@ -902,6 +921,13 @@ function UrunKarti({
               </div>
             )}
           </div>
+          <FiyatYuvarlama
+            urun={urun}
+            sonuc={sonuc}
+            teklifAyari={teklifAyari}
+            kurlar={kurlar}
+            onUrun={onUrun}
+          />
           {teklifAyari.ihracat ? (
             <div className="flex items-center justify-between gap-2 text-slate-600">
               <span>KDV</span>
@@ -923,6 +949,90 @@ function UrunKarti({
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * Teklif fiyatını yuvarlama (ör. 666,60 ₺ → 665 ya da 670 ₺). Yuvarlama teklif para biriminde yapılır;
+ * kâr, yuvarlanmış fiyata göre yeniden hesaplanır ve gerçek kâr marjı gösterilir.
+ */
+function FiyatYuvarlama({
+  urun,
+  sonuc,
+  teklifAyari,
+  kurlar,
+  onUrun,
+}: {
+  urun: UrunKalemli;
+  sonuc: ReturnType<typeof hesaplaUrun>;
+  teklifAyari: TeklifAyari;
+  kurlar: Kurlar;
+  onUrun: (d: Partial<UrunKalemli>) => void;
+}) {
+  const pb = teklifAyari.paraBirimi;
+  const [elle, setElle] = useState(false);
+  const yaz = (n: number) => tutarYaz(n, pb);
+  const uygula = (n: number | null) => {
+    setElle(false);
+    onUrun(n == null ? { yuvarlanmis_fiyat: null, yuvarlanmis_para_birimi: null } : { yuvarlanmis_fiyat: n, yuvarlanmis_para_birimi: pb });
+  };
+
+  if (sonuc.yuvarlandi) {
+    const hesaplanan = teklifParasina(sonuc.hesaplananTeklif, teklifAyari, kurlar);
+    return (
+      <div className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">
+        <div>
+          Fiyat yuvarlandı
+          {hesaplanan != null && (
+            <>
+              {" "}
+              · hesaplanan <span className="rakam">{yaz(Math.round(hesaplanan * 100) / 100)}</span>
+            </>
+          )}
+        </div>
+        {sonuc.gercekMarj != null && (
+          <div>
+            Gerçek kâr marjı <span className="rakam font-semibold">%{sonuc.gercekMarj.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}</span>
+          </div>
+        )}
+        <button type="button" className="mt-1 text-brand hover:underline" onClick={() => uygula(null)}>
+          Yuvarlamayı kaldır
+        </button>
+      </div>
+    );
+  }
+
+  const musteri = musteriBirimFiyati(urun, sonuc, teklifAyari, kurlar);
+  if (musteri == null) return null;
+  const secenekler = yuvarlamaSecenekleri(musteri);
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+      <span>Fiyatı yuvarla:</span>
+      {secenekler.map((n) => (
+        <button key={n} type="button" className="rakam rounded-md bg-white px-2 py-1 ring-1 ring-cizgi hover:ring-brand" onClick={() => uygula(n)}>
+          {yaz(n)}
+        </button>
+      ))}
+      {elle ? (
+        <form
+          className="flex items-center gap-1"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const n = sayiOku(new FormData(e.currentTarget).get("fiyat")?.toString() ?? "");
+            if (n != null && n > 0) uygula(Math.round(n * 100) / 100);
+          }}
+        >
+          <input name="fiyat" autoFocus inputMode="decimal" aria-label="Yuvarlanmış fiyat" placeholder="fiyat" className="girdi-sayi w-24 py-1" />
+          <button type="submit" className="rounded-md bg-brand px-2 py-1 text-white">
+            Uygula
+          </button>
+        </form>
+      ) : (
+        <button type="button" className="text-brand hover:underline" onClick={() => setElle(true)}>
+          Başka fiyat
+        </button>
+      )}
+    </div>
   );
 }
 
