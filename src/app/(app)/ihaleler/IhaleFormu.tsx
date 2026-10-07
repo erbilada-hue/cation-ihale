@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useFormState, useFormStatus } from "react-dom";
 import { ihaleKaydet } from "./actions";
 import { yuzdeYaz } from "@/lib/format";
+import { PARA_BIRIMLERI, TESLIM_SEKILLERI } from "@/lib/sabitler";
 import type { Ihale, Musteri, SegmentSablonu } from "@/lib/tipler";
 
 function KaydetButonu({ yeni }: { yeni: boolean }) {
@@ -40,6 +41,9 @@ export function IhaleFormu({
   const oneriler = musteriId && musteriId !== YENI_MUSTERI ? (markalar[musteriId] ?? []) : [];
   const [kaynak, setKaynak] = useState<string>(ihale?.kaynak ?? "");
   const [segment, setSegment] = useState<string>(ihale?.segment ?? "");
+  const [ihracat, setIhracat] = useState<boolean>(ihale?.ihracat ?? false);
+  const [teslimSekli, setTeslimSekli] = useState<string>(ihale?.teslim_sekli ?? "");
+  const teslimAciklamasi = TESLIM_SEKILLERI.find((t) => t.kod === teslimSekli)?.aciklama;
 
   return (
     <form action={eylem} className="space-y-6">
@@ -184,6 +188,63 @@ export function IhaleFormu({
             <input id="kaynak_dosya" name="kaynak_dosya" defaultValue={ihale?.kaynak_dosya} className="girdi" placeholder={kaynak === "sartname" ? "Örn. sartname.pdf" : "Örn. brief.pdf"} />
           </div>
         )}
+      </section>
+
+      <section className="kart space-y-4 p-6">
+        <h2 className="font-semibold text-brand-dark">Teklif ve teslim</h2>
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-cizgi px-4 py-3 text-sm">
+          <input
+            type="checkbox"
+            name="ihracat"
+            checked={ihracat}
+            onChange={(e) => setIhracat(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-brand"
+          />
+          <span>
+            <span className="font-medium text-brand-dark">İhracat işi (KDV yok)</span>
+            <span className="block text-slate-500">
+              İşaretlenince bu ihaledeki ürünlerin KDV oranı 0 olur ve teklifte KDV satırı çıkmaz.
+            </span>
+          </span>
+        </label>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="etiket" htmlFor="teklif_para_birimi">Teklif para birimi</label>
+            <select id="teklif_para_birimi" name="teklif_para_birimi" defaultValue={ihale?.teklif_para_birimi ?? "TRY"} className="girdi">
+              {PARA_BIRIMLERI.map((p) => (
+                <option key={p.kod} value={p.kod}>
+                  {p.sembol} {p.ad}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="etiket" htmlFor="teslim_sekli">Teslim şekli (Incoterms)</label>
+            <select id="teslim_sekli" name="teslim_sekli" value={teslimSekli} onChange={(e) => setTeslimSekli(e.target.value)} className="girdi">
+              <option value="">Belirtilmedi</option>
+              {TESLIM_SEKILLERI.map((t) => (
+                <option key={t.kod} value={t.kod}>
+                  {t.ad}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="etiket" htmlFor="teklif_dili">Teklif dili</label>
+            <select id="teklif_dili" name="teklif_dili" defaultValue={ihale?.teklif_dili ?? "tr"} className="girdi">
+              <option value="tr">Türkçe</option>
+              <option value="en">İngilizce</option>
+            </select>
+          </div>
+        </div>
+        {teslimAciklamasi && (
+          <p className="rounded-lg bg-zemin px-3 py-2 text-sm text-slate-600">
+            <strong>{teslimSekli}:</strong> {teslimAciklamasi} Teslim yerini (ör. Mersin limanı) yukarıdaki &ldquo;Teslim yeri&rdquo; alanına yazın.
+          </p>
+        )}
+        <p className="text-xs text-slate-500">
+          Maliyet her zaman TL hesaplanır. Teklif dolar veya euro ise ihale sayfasındaki kurla çevrilir.
+        </p>
       </section>
 
       <section className="kart p-6">

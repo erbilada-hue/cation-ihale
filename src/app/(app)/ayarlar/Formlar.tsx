@@ -58,7 +58,11 @@ export function FirmaFormu({ firma }: { firma: FirmaAyarlari }) {
       <Alan ad="vergi_dairesi" etiket="Vergi dairesi" deger={firma.vergi_dairesi} />
       <Alan ad="vergi_no" etiket="Vergi no" deger={firma.vergi_no} />
       <Alan ad="banka_adi" etiket="Banka" deger={firma.banka_adi} />
-      <Alan ad="iban" etiket="IBAN" deger={firma.iban} />
+      <Alan ad="iban" etiket="IBAN (TL)" deger={firma.iban} />
+      <Alan ad="iban_usd" etiket="IBAN (USD, dolar teklifleri için)" deger={firma.iban_usd ?? ""} />
+      <Alan ad="iban_eur" etiket="IBAN (EUR, euro teklifleri için)" deger={firma.iban_eur ?? ""} />
+      <Alan ad="swift" etiket="SWIFT / BIC kodu" deger={firma.swift ?? ""} />
+      <div />
       <div>
         <label className="etiket" htmlFor="teklif_gecerlilik_gun">Teklif geçerlilik süresi (gün)</label>
         <input id="teklif_gecerlilik_gun" name="teklif_gecerlilik_gun" inputMode="numeric" defaultValue={firma.teklif_gecerlilik_gun} className="girdi-sayi" />

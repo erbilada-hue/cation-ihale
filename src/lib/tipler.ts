@@ -9,6 +9,10 @@ export type FirmaAyarlari = {
   vergi_no: string;
   banka_adi: string;
   iban: string;
+  /** Dövizli tekliflerde gösterilen hesaplar */
+  iban_usd: string;
+  iban_eur: string;
+  swift: string;
   logo_data_url: string | null;
   teklif_gecerlilik_gun: number;
   varsayilan_kdv_orani: number;
@@ -57,6 +61,13 @@ export type Ihale = {
   asama: string;
   /** Boşsa ihale henüz sonuçlanmamıştır */
   sonuc: "olumlu" | "olumsuz" | null;
+  /** Müşteri teklifinin para birimi; maliyet TL hesaplanır, ihalenin kuruyla çevrilir */
+  teklif_para_birimi: "TRY" | "USD" | "EUR";
+  /** İhracat işi: KDV uygulanmaz */
+  ihracat: boolean;
+  /** Incoterms teslim şekli (FOB, CIF…); yer bilgisi teslim_yeri'nde */
+  teslim_sekli: string | null;
+  teklif_dili: "tr" | "en";
   sonuc_tarihi: string | null;
   notlar: string;
   created_at: string;

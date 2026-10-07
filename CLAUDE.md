@@ -180,6 +180,7 @@ Claude API, mesaj okuyucu, şartname analizi, marj tavsiyesi
 
 **Faz 4 — İhracat Modülü**
 Döviz kuru (TCMB ücretsiz API), Incoterms (EXW/FOB/CIF/DAP), çok dilli teklif (TR/EN/DE), proforma fatura
+İlk adım (2026-10-07, Erbil'in isteğiyle): ihalede teklif para birimi (TL/USD/EUR, maliyet TL hesaplanıp ihalenin kuruyla çevrilir), "İhracat işi" işareti (ürünlerin KDV'si 0, teklifte KDV satırı yok), Incoterms teslim şekli (eksik ihracat masraf kalemleri uyarısı), TR/EN müşteri teklifi, TCMB kur düğmesi (döviz satış), dövizli IBAN + SWIFT. Kalan: Almanca teklif, proforma fatura.
 
 **KURAL:** Bir faz tamamlanıp gerçek bir ihaleyle test edilmeden sonrakine geçilmez.
 

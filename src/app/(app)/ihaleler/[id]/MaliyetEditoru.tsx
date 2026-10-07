@@ -4,8 +4,8 @@ import { Fragment, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { hesaplaUrun, kalemTutari } from "@/lib/maliyet";
 import { kalemGirdisi, maliyetGirdisi, type Kurlar } from "@/lib/maliyetGirdisi";
-import { adetYaz, paraYaz, tarihYaz } from "@/lib/format";
-import { BIRIMLER, HAZIR_URUN, PARA_BIRIMLERI, URUN_GRUPLARI, urunGrubuAdi } from "@/lib/sabitler";
+import { adetYaz, paraYaz, tarihYaz, tutarYaz } from "@/lib/format";
+import { BIRIMLER, HAZIR_URUN, PARA_BIRIMLERI, URUN_GRUPLARI, teslimKalemleri, urunGrubuAdi } from "@/lib/sabitler";
 import { useKayit } from "@/lib/useKayit";
 import { SayiGirdisi } from "@/components/SayiGirdisi";
 import { SartnameDosyalari } from "@/components/SartnameDosyalari";
@@ -21,6 +21,7 @@ import {
   kalemSil,
   marjTavsiyesiAl,
   musteriTeklifiOlustur,
+  tcmbKurlariGetir,
   urunEkle,
   urunGuncelle,
   urunKopyala,
@@ -42,7 +43,19 @@ type Props = {
   ihaleSegmenti: string | null;
   /** Ürün kopyalarken hedef seçmek için diğer ihaleler (en yeni önce) */
   digerIhaleler: { id: string; ad: string }[];
+  teklifAyari: TeklifAyari;
 };
+
+/** Müşteri teklifinin para birimi, ihracat (KDV yok) ve teslim şekli */
+export type TeklifAyari = { paraBirimi: "TRY" | "USD" | "EUR"; ihracat: boolean; teslimSekli: string | null };
+
+/** TL tutarın teklif para birimindeki karşılığı; kur yoksa null */
+function teklifParasina(tl: number | null, ayar: TeklifAyari, kurlar: Kurlar): number | null {
+  if (tl == null) return null;
+  if (ayar.paraBirimi === "TRY") return tl;
+  const kur = kurlar[ayar.paraBirimi];
+  return kur ? tl / kur : null;
+}
 
 export function MaliyetEditoru({
   ihaleId,
@@ -55,6 +68,7 @@ export function MaliyetEditoru({
   segmentler,
   ihaleSegmenti,
   digerIhaleler,
+  teklifAyari,
 }: Props) {
   const router = useRouter();
   const [urunler, setUrunler] = useState(ilkUrunler);
@@ -63,6 +77,11 @@ export function MaliyetEditoru({
   const [teklifHazirlaniyor, setTeklifHazirlaniyor] = useState(false);
   const [analizDosyasi, setAnalizDosyasi] = useState<IhaleDosyasi | null>(null);
   const [analizMesaji, setAnalizMesaji] = useState<string | null>(null);
+  const [tcmbDurumu, setTcmbDurumu] = useState<{ yukleniyor: boolean; mesaj: string | null; hata: boolean }>({
+    yukleniyor: false,
+    mesaj: null,
+    hata: false,
+  });
   const [kopyaMesaji, setKopyaMesaji] = useState<{ urunId: string; ad: string; ihaleId: string; ihaleAdi: string } | null>(null);
   const kayit = useKayit();
 
@@ -156,6 +175,15 @@ export function MaliyetEditoru({
     setUrunler((liste) => liste.filter((u) => u.id !== urun.id));
   }
 
+  async function tcmbdenGetir() {
+    setTcmbDurumu({ yukleniyor: true, mesaj: null, hata: false });
+    const s = await tcmbKurlariGetir();
+    if (s.hata !== undefined) return setTcmbDurumu({ yukleniyor: false, mesaj: s.hata, hata: true });
+    kurDegistir("USD", s.veri.USD);
+    kurDegistir("EUR", s.veri.EUR);
+    setTcmbDurumu({ yukleniyor: false, mesaj: `TCMB ${s.veri.tarih} döviz satış kuru yazıldı.`, hata: false });
+  }
+
   async function urunuKopyala(urun: UrunKalemli, hedefIhaleId: string): Promise<boolean> {
     setIslemHatasi(null);
     setKopyaMesaji(null);
@@ -247,7 +275,14 @@ export function MaliyetEditoru({
       <section className="kart flex flex-wrap items-center gap-x-6 gap-y-3 px-6 py-4">
         <div className="mr-auto">
           <h2 className="font-semibold text-brand-dark">Döviz kurları</h2>
-          <p className="text-xs text-slate-500">Dolar veya euro ile alınan kalemler bu kurla TL&apos;ye çevrilir.</p>
+          <p className="text-xs text-slate-500">
+            Dolar veya euro ile alınan kalemler bu kurla TL&apos;ye çevrilir.
+            {teklifAyari.paraBirimi !== "TRY" &&
+              ` Teklif ${teklifAyari.paraBirimi === "USD" ? "dolar" : "euro"} olarak verileceği için fiyatlar da bu kurla çevrilir.`}
+          </p>
+          {tcmbDurumu.mesaj && (
+            <p className={`mt-1 text-xs ${tcmbDurumu.hata ? "text-red-700" : "text-green-700"}`}>{tcmbDurumu.mesaj}</p>
+          )}
         </div>
         {(["USD", "EUR"] as const).map((p) => (
           <div key={p} className="flex items-center gap-2 text-sm">
@@ -262,11 +297,14 @@ export function MaliyetEditoru({
                 placeholder="gir"
               />
             </div>
-            {dovizliParaBirimleri.has(p) && kurlar[p] == null && (
+            {(dovizliParaBirimleri.has(p) || teklifAyari.paraBirimi === p) && kurlar[p] == null && (
               <span className="text-xs text-amber-700">gerekli</span>
             )}
           </div>
         ))}
+        <button type="button" className="btn-ikincil btn-kucuk" onClick={tcmbdenGetir} disabled={tcmbDurumu.yukleniyor}>
+          {tcmbDurumu.yukleniyor ? "Getiriliyor…" : "TCMB kurunu getir"}
+        </button>
       </section>
 
       <section className="kart px-6 py-4">
@@ -322,6 +360,7 @@ export function MaliyetEditoru({
           onKalemSil={(k) => kalemiSil(urun.id, k)}
           onSil={() => urunuSil(urun)}
           digerIhaleler={digerIhaleler}
+          teklifAyari={teklifAyari}
           onKopyala={(hedef) => urunuKopyala(urun, hedef)}
           kopyaMesaji={
             kopyaMesaji?.urunId === urun.id ? (
@@ -364,6 +403,26 @@ export function MaliyetEditoru({
             <Ozet baslik="KDV dahil toplam" deger={genel.eksik ? "—" : paraYaz(genel.kdvDahil)} />
             <Ozet baslik="Net kâr" deger={genel.eksik ? "—" : paraYaz(genel.netKar)} />
           </div>
+          {teklifAyari.paraBirimi !== "TRY" && !genel.eksik && (
+            <p className="mt-3 text-sm text-slate-600">
+              Müşteriye teklif toplamı ({teklifAyari.paraBirimi}
+              {teklifAyari.ihracat ? ", KDV yok" : ", KDV hariç"}):{" "}
+              {kurlar[teklifAyari.paraBirimi] ? (
+                <span className="rakam font-semibold text-brand">
+                  {tutarYaz(
+                    sonuclar.reduce(
+                      (t, { urun, sonuc }) =>
+                        t + Math.round((teklifParasina(sonuc.birim.teklif, teklifAyari, kurlar) ?? 0) * 100) / 100 * urun.adet,
+                      0,
+                    ),
+                    teklifAyari.paraBirimi,
+                  )}
+                </span>
+              ) : (
+                <span className="text-amber-700">kuru girin</span>
+              )}
+            </p>
+          )}
           {genel.eksik && (
             <p className="mt-3 text-sm text-amber-700">
               {genel.kurEksik
@@ -401,7 +460,7 @@ export function MaliyetEditoru({
                   <td className="rakam py-2">{t.teklif_no}</td>
                   <td className="rakam py-2">{tarihYaz(t.teklif_tarihi)}</td>
                   <td className="rakam py-2">{tarihYaz(t.gecerlilik_tarihi)}</td>
-                  <td className="rakam py-2 text-right">{paraYaz(t.icerik.araToplam)}</td>
+                  <td className="rakam py-2 text-right">{tutarYaz(t.icerik.araToplam, t.icerik.paraBirimi ?? "TRY")}</td>
                   <td className="py-2 text-right">
                     <a href={`/api/pdf/teklif/${t.id}`} target="_blank" rel="noopener" className="text-brand hover:underline">
                       PDF
@@ -443,6 +502,7 @@ type UrunKartiProps = {
   onKalemSil: (k: UrunKalemi) => void;
   onSil: () => void;
   digerIhaleler: { id: string; ad: string }[];
+  teklifAyari: TeklifAyari;
   onKopyala: (hedefIhaleId: string) => Promise<boolean>;
   kopyaMesaji: React.ReactNode;
 };
@@ -460,9 +520,15 @@ function UrunKarti({
   onKalemSil,
   onSil,
   digerIhaleler,
+  teklifAyari,
   onKopyala,
   kopyaMesaji,
 }: UrunKartiProps) {
+  // Teslim şekline göre (FOB, CIF…) maliyette olması gereken ama eklenmemiş ihracat kalemleri
+  const eksikTeslimKalemleri = teslimKalemleri(teklifAyari.teslimSekli).filter(
+    (t) => !urun.urun_kalemleri.some((k) => kalemAnahtari(k.ad).includes(t.kelime)),
+  );
+  const dovizTeklif = teklifAyari.paraBirimi !== "TRY" ? teklifParasina(sonuc.birim.teklif, teklifAyari, kurlar) : null;
   const b = sonuc.birim;
   const t = sonuc.toplam;
   const [acikListe, setAcikListe] = useState<string | null>(null);
@@ -521,6 +587,24 @@ function UrunKarti({
               Hazır ürün: ilk satıra tedarikçiden <strong>1 adet alış fiyatını</strong> girin ya da fiyat listesinden seçin.
               Logo baskı, ambalaj veya nakliye varsa kalem olarak ekleyin.
             </p>
+          )}
+          {eksikTeslimKalemleri.length > 0 && (
+            <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <span>{teklifAyari.teslimSekli} teslimde bu masraflar size ait; maliyete ekleyin:</span>
+              {eksikTeslimKalemleri.map((t) => {
+                const sablon = sablonlar.find((s) => kalemAnahtari(s.ad).includes(t.kelime));
+                return (
+                  <button
+                    key={t.kelime}
+                    type="button"
+                    className="rounded-full border border-amber-300 bg-white px-2.5 py-0.5 font-medium hover:border-amber-500"
+                    onClick={() => onKalemEkle(sablon ? { sablonId: sablon.id } : { ad: t.ad, birim: "adet" })}
+                  >
+                    + {t.ad}
+                  </button>
+                );
+              })}
+            </div>
           )}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[600px] text-sm">
@@ -783,13 +867,34 @@ function UrunKarti({
             <div className="text-xs text-slate-500">Teklif birim fiyatı (KDV hariç)</div>
             <div className="rakam text-2xl font-semibold text-brand">{paraYaz(b.teklif)}</div>
             <div className="rakam text-xs text-slate-500">Toplam {paraYaz(t.teklif)}</div>
+            {teklifAyari.paraBirimi !== "TRY" && (
+              <div className="mt-2 border-t border-cizgi pt-2">
+                <div className="text-xs text-slate-500">Müşteriye ({teklifAyari.paraBirimi})</div>
+                {dovizTeklif != null ? (
+                  <div className="rakam text-lg font-semibold text-brand">
+                    {tutarYaz(Math.round(dovizTeklif * 100) / 100, teklifAyari.paraBirimi)}
+                  </div>
+                ) : (
+                  <div className="text-xs text-amber-700">
+                    {sonuc.birim.teklif == null ? "Fiyat hesaplanınca görünür." : "Yukarıdan kuru girin."}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-slate-600">KDV</span>
-            <div className="w-24">
-              <SayiGirdisi deger={urun.kdv_orani} bosOlamaz onDeger={(n) => n != null && onUrun({ kdv_orani: n })} sonEk="%" className="girdi-sayi py-1" ariaLabel="KDV oranı" />
+          {teklifAyari.ihracat ? (
+            <div className="flex items-center justify-between gap-2 text-slate-600">
+              <span>KDV</span>
+              <span className="rozet bg-blue-50 text-blue-700">İhracat, KDV yok</span>
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-600">KDV</span>
+              <div className="w-24">
+                <SayiGirdisi deger={urun.kdv_orani} bosOlamaz onDeger={(n) => n != null && onUrun({ kdv_orani: n })} sonEk="%" className="girdi-sayi py-1" ariaLabel="KDV oranı" />
+              </div>
+            </div>
+          )}
           <Satir ad="KDV tutarı" birim={b.kdvTutari} toplam={t.kdvTutari} />
           <Satir ad="KDV dahil fiyat" birim={b.kdvDahil} toplam={t.kdvDahil} />
           <div className="border-t border-cizgi pt-3">
