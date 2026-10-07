@@ -143,3 +143,28 @@ describe("döviz", () => {
     expect(() => teklifOlustur([{ ...urun, ad: "Tişört" }])).toThrow(/döviz kuru/);
   });
 });
+
+describe("dövizli ve ihracat teklifi", () => {
+  const polo = { ad: "Polo", adet: 1000, fireOrani: 0, karMarji: 0, kdvOrani: 20, kalemler: [{ kullanim: 1, birimFiyat: 192.5 }] };
+
+  it("TL teklif fiyatını kurla euroya çevirip sente yuvarlar", () => {
+    const t = teklifOlustur([polo], { paraBirimi: "EUR", kur: 38.5, ihracat: false });
+    expect(t.satirlar[0].birimFiyat).toBe(5);
+    expect(t.araToplam).toBe(5000);
+    expect(t.kdvler).toEqual([{ oran: 20, matrah: 5000, tutar: 1000 }]);
+    expect(t).toMatchObject({ paraBirimi: "EUR", kur: 38.5, ihracat: false });
+  });
+
+  it("ihracatta KDV uygulanmaz", () => {
+    const t = teklifOlustur([polo], { paraBirimi: "USD", kur: 35, ihracat: true, teslimSekli: "FOB", dil: "en" });
+    expect(t.satirlar[0].birimFiyat).toBe(5.5);
+    expect(t.satirlar[0].kdvOrani).toBe(0);
+    expect(t.kdvler).toEqual([]);
+    expect(t.genelToplam).toBe(5500);
+    expect(t).toMatchObject({ ihracat: true, teslimSekli: "FOB", dil: "en" });
+  });
+
+  it("dövizli teklifte kur girilmemişse hata verir", () => {
+    expect(() => teklifOlustur([polo], { paraBirimi: "EUR", kur: null, ihracat: true })).toThrow(/euro kurunu/);
+  });
+});

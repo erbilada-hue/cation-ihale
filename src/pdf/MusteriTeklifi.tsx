@@ -1,5 +1,5 @@
 import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
-import { adetYaz, paraYaz, tarihYaz, yuzdeYaz } from "@/lib/format";
+import { adetYaz, tarihYaz, tutarYaz, yuzdeYaz } from "@/lib/format";
 import type { FirmaAyarlari, Ihale, Teklif } from "@/lib/tipler";
 import { RENK, ortakStil as o } from "./ortak";
 
@@ -44,12 +44,81 @@ const s = StyleSheet.create({
   banka: { marginTop: 18, padding: 10, borderWidth: 1, borderColor: RENK.cizgi, borderRadius: 6 },
 });
 
+const METIN = {
+  tr: {
+    baslik: "FİYAT TEKLİFİ",
+    sayin: "Sayın",
+    konu: "Konu",
+    teklifNo: "Teklif no",
+    teklifTarihi: "Teklif tarihi",
+    gecerlilik: "Geçerlilik tarihi",
+    urun: "Ürün",
+    adet: "Adet",
+    birimFiyat: "Birim fiyat",
+    toplam: "Toplam",
+    araToplam: "Ara toplam (KDV hariç)",
+    araToplamIhracat: "Toplam",
+    kdv: "KDV",
+    matrah: "matrah",
+    genelToplam: "Genel toplam (KDV dahil)",
+    genelToplamIhracat: "Genel toplam",
+    kdvNotu: "Birim fiyatlara KDV dahil değildir; KDV ayrıca gösterilmiştir.",
+    ihracatNotu: "İhracat teslimidir; fiyatlara KDV uygulanmaz.",
+    termin: "Termin",
+    teslimat: "Teslimat",
+    teslimSekli: "Teslim şekli",
+    gecerlilikNotu: (t: string) => `Bu teklif ${t} tarihine kadar geçerlidir.`,
+    banka: "Banka bilgileri",
+    hesapSahibi: "Hesap sahibi",
+    vd: "V.D.",
+    vno: "V.No",
+  },
+  en: {
+    baslik: "PRICE QUOTATION",
+    sayin: "To",
+    konu: "Subject",
+    teklifNo: "Quotation no",
+    teklifTarihi: "Date",
+    gecerlilik: "Valid until",
+    urun: "Item",
+    adet: "Qty",
+    birimFiyat: "Unit price",
+    toplam: "Amount",
+    araToplam: "Subtotal (excl. VAT)",
+    araToplamIhracat: "Total",
+    kdv: "VAT",
+    matrah: "base",
+    genelToplam: "Grand total (incl. VAT)",
+    genelToplamIhracat: "Grand total",
+    kdvNotu: "Unit prices exclude VAT; VAT is shown separately.",
+    ihracatNotu: "Export delivery; prices are exempt from VAT.",
+    termin: "Delivery time",
+    teslimat: "Delivery place",
+    teslimSekli: "Delivery terms",
+    gecerlilikNotu: (t: string) => `This quotation is valid until ${t}.`,
+    banka: "Bank details",
+    hesapSahibi: "Account holder",
+    vd: "Tax office",
+    vno: "Tax no",
+  },
+} as const;
+
 export function MusteriTeklifiPdf({ teklif, ihale, firma }: { teklif: Teklif; ihale: Ihale; firma: FirmaAyarlari | null }) {
   const icerik = teklif.icerik;
   const tekKdv = icerik.kdvler.length === 1;
+  // Eski tekliflerde bu bilgiler yoktur: TL, Türkçe, KDV'li
+  const pb = icerik.paraBirimi ?? "TRY";
+  const dil = icerik.dil ?? "tr";
+  const ihracat = icerik.ihracat ?? false;
+  const m = METIN[dil];
+  const para = (n: number) => tutarYaz(n, pb, dil);
+  const adetMetni = (n: number) => (dil === "en" ? n.toLocaleString("en-GB") : adetYaz(n));
+  const tarih = (t: string) => (dil === "en" ? new Date(t + "T00:00:00").toLocaleDateString("en-GB") : tarihYaz(t));
+  const iban = pb === "USD" ? firma?.iban_usd || "" : pb === "EUR" ? firma?.iban_eur || "" : firma?.iban || "";
+  const teslimSekli = icerik.teslimSekli ? `${icerik.teslimSekli}${ihale.teslim_yeri ? " " + ihale.teslim_yeri : ""} (Incoterms 2020)` : null;
 
   return (
-    <Document title={`Teklif ${teklif.teklif_no}`} author={firma?.firma_adi || "CATION"}>
+    <Document title={`${dil === "en" ? "Quotation" : "Teklif"} ${teklif.teklif_no}`} author={firma?.firma_adi || "CATION"}>
       <Page size="A4" style={o.sayfa}>
         <View style={s.ust}>
           <View>
@@ -69,31 +138,31 @@ export function MusteriTeklifiPdf({ teklif, ihale, firma }: { teklif: Teklif; ih
           </View>
         </View>
 
-        <Text style={s.baslik}>FİYAT TEKLİFİ</Text>
+        <Text style={s.baslik}>{m.baslik}</Text>
 
         <View style={s.bilgiSatiri}>
           <View style={s.bilgiKutusu}>
-            <Text style={s.etiket}>Sayın</Text>
+            <Text style={s.etiket}>{m.sayin}</Text>
             <Text style={o.kalin}>{ihale.musteri || "—"}</Text>
             {ihale.yetkili ? <Text>{ihale.yetkili}</Text> : null}
-            <Text style={[o.gri, { marginTop: 4 }]}>Konu: {ihale.ad}</Text>
+            <Text style={[o.gri, { marginTop: 4 }]}>{m.konu}: {ihale.ad}</Text>
           </View>
           <View style={[s.bilgiKutusu, { flexGrow: 0, flexShrink: 0, flexBasis: 170 }]}>
-            <Text style={s.etiket}>Teklif no</Text>
+            <Text style={s.etiket}>{m.teklifNo}</Text>
             <Text style={[o.rakam, { marginBottom: 4 }]}>{teklif.teklif_no}</Text>
-            <Text style={s.etiket}>Teklif tarihi</Text>
-            <Text style={[o.rakam, { marginBottom: 4 }]}>{tarihYaz(teklif.teklif_tarihi)}</Text>
-            <Text style={s.etiket}>Geçerlilik tarihi</Text>
-            <Text style={o.rakam}>{tarihYaz(teklif.gecerlilik_tarihi)}</Text>
+            <Text style={s.etiket}>{m.teklifTarihi}</Text>
+            <Text style={[o.rakam, { marginBottom: 4 }]}>{tarih(teklif.teklif_tarihi)}</Text>
+            <Text style={s.etiket}>{m.gecerlilik}</Text>
+            <Text style={o.rakam}>{tarih(teklif.gecerlilik_tarihi)}</Text>
           </View>
         </View>
 
         <View style={s.tabloBaslik}>
           <Text style={s.sira}>#</Text>
-          <Text style={s.urun}>Ürün</Text>
-          <Text style={s.adet}>Adet</Text>
-          <Text style={s.fiyat}>Birim fiyat</Text>
-          <Text style={s.toplam}>Toplam</Text>
+          <Text style={s.urun}>{m.urun}</Text>
+          <Text style={s.adet}>{m.adet}</Text>
+          <Text style={s.fiyat}>{m.birimFiyat}</Text>
+          <Text style={s.toplam}>{m.toplam}</Text>
         </View>
         {icerik.satirlar.map((satir, i) => (
           <View key={i} style={s.satir} wrap={false}>
@@ -101,53 +170,59 @@ export function MusteriTeklifiPdf({ teklif, ihale, firma }: { teklif: Teklif; ih
             <View style={s.urun}>
               <Text style={o.kalin}>{satir.ad}</Text>
               {satir.aciklama ? <Text style={o.gri}>{satir.aciklama}</Text> : null}
-              {!tekKdv ? <Text style={o.gri}>KDV {yuzdeYaz(satir.kdvOrani)}</Text> : null}
+              {!tekKdv && !ihracat ? <Text style={o.gri}>{m.kdv} {yuzdeYaz(satir.kdvOrani)}</Text> : null}
             </View>
-            <Text style={[s.adet, o.rakam]}>{adetYaz(satir.adet)}</Text>
-            <Text style={[s.fiyat, o.rakam]}>{paraYaz(satir.birimFiyat)}</Text>
-            <Text style={[s.toplam, o.rakam]}>{paraYaz(satir.toplam)}</Text>
+            <Text style={[s.adet, o.rakam]}>{adetMetni(satir.adet)}</Text>
+            <Text style={[s.fiyat, o.rakam]}>{para(satir.birimFiyat)}</Text>
+            <Text style={[s.toplam, o.rakam]}>{para(satir.toplam)}</Text>
           </View>
         ))}
 
         <View style={s.toplamlar} wrap={false}>
-          <View style={s.toplamSatiri}>
-            <Text>Ara toplam (KDV hariç)</Text>
-            <Text style={o.rakam}>{paraYaz(icerik.araToplam)}</Text>
-          </View>
+          {!ihracat && (
+            <View style={s.toplamSatiri}>
+              <Text>{m.araToplam}</Text>
+              <Text style={o.rakam}>{para(icerik.araToplam)}</Text>
+            </View>
+          )}
           {icerik.kdvler.map((k) => (
             <View key={k.oran} style={s.toplamSatiri}>
               <Text>
-                KDV {yuzdeYaz(k.oran)}
-                {!tekKdv ? ` (matrah ${paraYaz(k.matrah)})` : ""}
+                {m.kdv} {yuzdeYaz(k.oran)}
+                {!tekKdv ? ` (${m.matrah} ${para(k.matrah)})` : ""}
               </Text>
-              <Text style={o.rakam}>{paraYaz(k.tutar)}</Text>
+              <Text style={o.rakam}>{para(k.tutar)}</Text>
             </View>
           ))}
           <View style={s.genelToplam}>
-            <Text>Genel toplam (KDV dahil)</Text>
-            <Text style={o.rakam}>{paraYaz(icerik.genelToplam)}</Text>
+            <Text>{ihracat ? m.genelToplamIhracat : m.genelToplam}</Text>
+            <Text style={o.rakam}>{para(icerik.genelToplam)}</Text>
           </View>
         </View>
 
         <View style={s.kosullar} wrap={false}>
-          <Text>• Birim fiyatlara KDV dahil değildir; KDV ayrıca gösterilmiştir.</Text>
-          {ihale.termin ? <Text>• Termin: {ihale.termin}</Text> : null}
-          {ihale.teslim_yeri ? <Text>• Teslimat: {ihale.teslim_yeri}</Text> : null}
-          <Text>• Bu teklif {tarihYaz(teklif.gecerlilik_tarihi)} tarihine kadar geçerlidir.</Text>
+          <Text>• {ihracat ? m.ihracatNotu : m.kdvNotu}</Text>
+          {teslimSekli ? <Text>• {m.teslimSekli}: {teslimSekli}</Text> : null}
+          {ihale.termin ? <Text>• {m.termin}: {ihale.termin}</Text> : null}
+          {!teslimSekli && ihale.teslim_yeri ? <Text>• {m.teslimat}: {ihale.teslim_yeri}</Text> : null}
+          <Text>• {m.gecerlilikNotu(tarih(teklif.gecerlilik_tarihi))}</Text>
         </View>
 
-        {firma?.iban ? (
+        {firma && iban ? (
           <View style={s.banka} wrap={false}>
-            <Text style={s.etiket}>Banka bilgileri</Text>
+            <Text style={s.etiket}>{m.banka}</Text>
             {firma.banka_adi ? <Text>{firma.banka_adi}</Text> : null}
-            {firma.firma_adi ? <Text>Hesap sahibi: {firma.firma_adi}</Text> : null}
-            <Text style={o.rakam}>IBAN: {firma.iban}</Text>
+            {firma.firma_adi ? <Text>{m.hesapSahibi}: {firma.firma_adi}</Text> : null}
+            <Text style={o.rakam}>
+              IBAN ({pb}): {iban}
+            </Text>
+            {pb !== "TRY" && firma.swift ? <Text style={o.rakam}>SWIFT / BIC: {firma.swift}</Text> : null}
           </View>
         ) : null}
 
         <View style={o.altBilgi} fixed>
           <Text>
-            {[firma?.firma_adi, firma?.vergi_dairesi && `V.D.: ${firma.vergi_dairesi}`, firma?.vergi_no && `V.No: ${firma.vergi_no}`]
+            {[firma?.firma_adi, firma?.vergi_dairesi && `${m.vd}: ${firma.vergi_dairesi}`, firma?.vergi_no && `${m.vno}: ${firma.vergi_no}`]
               .filter(Boolean)
               .join(" · ")}
           </Text>

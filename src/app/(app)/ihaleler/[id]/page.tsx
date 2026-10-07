@@ -71,7 +71,13 @@ export default async function IhaleDetaySayfasi({ params }: { params: { id: stri
             <span>
               Son teklif: <span className="rakam">{tarihYaz(ihale.son_teklif_tarihi)}</span>
             </span>
-            {ihale.teslim_yeri && <span>Teslim: {ihale.teslim_yeri}</span>}
+            {(ihale.teslim_sekli || ihale.teslim_yeri) && (
+              <span>Teslim: {[ihale.teslim_sekli, ihale.teslim_yeri].filter(Boolean).join(" ")}</span>
+            )}
+            {ihale.teklif_para_birimi && ihale.teklif_para_birimi !== "TRY" && (
+              <span className="rozet bg-zemin text-slate-700">Teklif: {ihale.teklif_para_birimi}</span>
+            )}
+            {ihale.ihracat && <span className="rozet bg-blue-50 text-blue-700">İhracat · KDV yok</span>}
             {ihale.termin && <span>Termin: {ihale.termin}</span>}
             <span className="rozet bg-brand-soft text-brand">{asamaAdi(ihale.asama)}</span>
           </div>
@@ -113,6 +119,11 @@ export default async function IhaleDetaySayfasi({ params }: { params: { id: stri
         segmentler={segmentler}
         ihaleSegmenti={ihale.kaynak === "segment" ? ihale.segment : null}
         digerIhaleler={digerIhaleler}
+        teklifAyari={{
+          paraBirimi: ihale.teklif_para_birimi ?? "TRY",
+          ihracat: ihale.ihracat ?? false,
+          teslimSekli: ihale.teslim_sekli ?? null,
+        }}
       />
     </div>
   );

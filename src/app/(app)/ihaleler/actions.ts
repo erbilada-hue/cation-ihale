@@ -14,7 +14,8 @@ import {
   urunuDuzelt,
 } from "@/lib/veri";
 import { EksikBilgiHatasi, teklifOlustur } from "@/lib/maliyet";
-import { HAZIR_URUN, PARA_BIRIMLERI, SEGMENTLER, URUN_GRUPLARI } from "@/lib/sabitler";
+import { HAZIR_URUN, PARA_BIRIMLERI, SEGMENTLER, TESLIM_SEKILLERI, URUN_GRUPLARI } from "@/lib/sabitler";
+import { TCMB_ADRESI, tcmbXmlOku, type TcmbKurlari } from "@/lib/tcmb";
 import type { IhaleDosyasi, KalemSablonu, UrunKalemi, UrunKalemli } from "@/lib/tipler";
 import { SARTNAME_KLASORU } from "@/lib/dosya";
 import { tarihMetni } from "@/lib/format";
@@ -76,6 +77,13 @@ export async function ihaleKaydet(_onceki: IhaleFormDurumu, form: FormData): Pro
     return { hata: "Teknik şartname yoksa kalite segmentini seçmeniz zorunludur." };
   }
 
+  const paraBirimi = String(form.get("teklif_para_birimi") ?? "TRY");
+  if (!PARA_BIRIMLERI.some((p) => p.kod === paraBirimi)) return { hata: "Teklif para birimi geçersiz." };
+  const teslimSekli = String(form.get("teslim_sekli") ?? "") || null;
+  if (teslimSekli && !TESLIM_SEKILLERI.some((t) => t.kod === teslimSekli)) return { hata: "Teslim şekli geçersiz." };
+  const dil = String(form.get("teklif_dili") ?? "tr") === "en" ? "en" : "tr";
+  const ihracat = form.get("ihracat") === "on";
+
   const supabase = sunucuIstemcisi();
   const musteri = await musteriCoz(supabase, form);
   if ("hata" in musteri) return { hata: musteri.hata };
@@ -93,12 +101,26 @@ export async function ihaleKaydet(_onceki: IhaleFormDurumu, form: FormData): Pro
     kaynak_dosya: String(form.get("kaynak_dosya") ?? "").trim(),
     segment: kaynak === "segment" ? segment : null,
     notlar: String(form.get("notlar") ?? "").trim(),
+    teklif_para_birimi: paraBirimi,
+    ihracat,
+    teslim_sekli: teslimSekli,
+    teklif_dili: dil,
   };
 
   let hedefId = id;
   if (id) {
+    const onceki = await ihaleGetir(supabase, id);
     const { error } = await supabase.from("ihaleler").update(kayit).eq("id", id);
     if (error) return { hata: "İhale kaydedilemedi: " + error.message };
+    // İhracat açılınca ürünlerin KDV'si 0 olur; kapanınca firmanın varsayılan KDV'sine döner
+    if (onceki && onceki.ihracat !== ihracat) {
+      const firma = await firmaAyarlariGetir(supabase);
+      const { error: kdvHatasi } = await supabase
+        .from("ihale_urunleri")
+        .update({ kdv_orani: ihracat ? 0 : (firma?.varsayilan_kdv_orani ?? 20) })
+        .eq("ihale_id", id);
+      if (kdvHatasi) return { hata: "Ürünlerin KDV oranı güncellenemedi: " + kdvHatasi.message };
+    }
   } else {
     const { data, error } = await supabase.from("ihaleler").insert(kayit).select("id").single();
     if (error) return { hata: "İhale kaydedilemedi: " + error.message };
@@ -188,7 +210,7 @@ export async function urunEkle(
       adet: girdi.adet,
       fire_orani: fire,
       kar_marji: null,
-      kdv_orani: firma?.varsayilan_kdv_orani ?? 20,
+      kdv_orani: ihale.ihracat ? 0 : (firma?.varsayilan_kdv_orani ?? 20),
       sira: count ?? 0,
     })
     .select("*")
@@ -310,7 +332,8 @@ export async function urunKopyala(urunId: string, hedefIhaleId: string): Promise
       adet: urun.adet,
       fire_orani: urun.fire_orani,
       kar_marji: urun.kar_marji,
-      kdv_orani: urun.kdv_orani,
+      // İhracat ihalesine kopyalanan üründe KDV yoktur; ihracattan yurt içine kopyalanırsa varsayılan KDV gelir
+      kdv_orani: hedef.ihracat ? 0 : urun.kdv_orani === 0 ? ((await firmaAyarlariGetir(supabase))?.varsayilan_kdv_orani ?? 20) : urun.kdv_orani,
       sira: count ?? 0,
     })
     .select("*")
@@ -349,6 +372,19 @@ export async function urunKopyala(urunId: string, hedefIhaleId: string): Promise
   }
   revalidatePath(`/ihaleler/${hedef.id}`);
   return { veri: urunuDuzelt({ ...(yeni as UrunKalemli), urun_kalemleri: kalemler }) };
+}
+
+/** TCMB'nin bugünkü döviz satış kurları; kaydetmez, ekrandaki kur kutularına yazılır */
+export async function tcmbKurlariGetir(): Promise<Sonuc<TcmbKurlari>> {
+  try {
+    const yanit = await fetch(TCMB_ADRESI, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
+    if (!yanit.ok) return { hata: `TCMB kurları alınamadı (${yanit.status}). Kurları elle girebilirsiniz.` };
+    const kurlar = tcmbXmlOku(await yanit.text());
+    if (!kurlar) return { hata: "TCMB kur listesi okunamadı. Kurları elle girebilirsiniz." };
+    return { veri: kurlar };
+  } catch {
+    return { hata: "TCMB'ye bağlanılamadı. Kurları elle girebilirsiniz." };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -467,8 +503,17 @@ export async function musteriTeklifiOlustur(ihaleId: string): Promise<Sonuc<{ te
   const urunler = await urunleriGetir(supabase, ihaleId);
   let ozet;
   try {
+    const kurlar = ihaleKurlari(ihale);
+    const paraBirimi = ihale.teklif_para_birimi ?? "TRY";
     ozet = teklifOlustur(
-      urunler.map((u) => ({ ...maliyetGirdisi(u, ihaleKurlari(ihale)), ad: u.ad, aciklama: u.aciklama })),
+      urunler.map((u) => ({ ...maliyetGirdisi(u, kurlar), ad: u.ad, aciklama: u.aciklama })),
+      {
+        paraBirimi,
+        kur: paraBirimi === "TRY" ? null : kurlar[paraBirimi],
+        ihracat: ihale.ihracat ?? false,
+        teslimSekli: ihale.teslim_sekli ?? null,
+        dil: ihale.teklif_dili ?? "tr",
+      },
     );
   } catch (e) {
     if (e instanceof EksikBilgiHatasi) return { hata: e.message };

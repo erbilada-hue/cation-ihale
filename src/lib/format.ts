@@ -19,6 +19,28 @@ export function paraYaz(n: number | null | undefined): string {
   return tl.format(n);
 }
 
+const tutarBicimleri = new Map<string, Intl.NumberFormat>();
+
+/**
+ * Teklif tutarı, teklifin para biriminde ve dilinde, 2 ondalıkla: ₺1.234,56 · €1.234,56 · €1,234.56 (İngilizce)
+ */
+export function tutarYaz(n: number | null | undefined, paraBirimi: string = "TRY", dil: "tr" | "en" = "tr"): string {
+  if (n == null || Number.isNaN(n)) return "—";
+  const pb = paraBirimi === "USD" || paraBirimi === "EUR" ? paraBirimi : "TRY";
+  const anahtar = `${pb}|${dil}`;
+  let bicim = tutarBicimleri.get(anahtar);
+  if (!bicim) {
+    bicim = new Intl.NumberFormat(dil === "en" ? "en-GB" : "tr-TR", {
+      style: "currency",
+      currency: pb,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    tutarBicimleri.set(anahtar, bicim);
+  }
+  return bicim.format(n);
+}
+
 /** Kalemin kendi para biriminde fiyatı: ₺1.234,56 / $12,50 / €8,75 */
 export function fiyatYaz(n: number | null | undefined, paraBirimi: string): string {
   if (n == null || Number.isNaN(n)) return "—";

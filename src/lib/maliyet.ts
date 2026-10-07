@@ -122,12 +122,39 @@ export type TeklifOzeti = {
   araToplam: number;
   kdvler: { oran: number; matrah: number; tutar: number }[];
   genelToplam: number;
+  /** Tutarların para birimi; eski tekliflerde yoktur (TL) */
+  paraBirimi?: TeklifParaBirimi;
+  /** Dövizli teklifte kullanılan kur (1 birim döviz = kur TL) */
+  kur?: number | null;
+  /** İhracat: KDV uygulanmadı */
+  ihracat?: boolean;
+  teslimSekli?: string | null;
+  dil?: "tr" | "en";
+};
+
+export type TeklifParaBirimi = "TRY" | "USD" | "EUR";
+
+export type TeklifSecenekleri = {
+  paraBirimi: TeklifParaBirimi;
+  /** paraBirimi TRY değilse ihalede girilen kur */
+  kur: number | null;
+  ihracat: boolean;
+  teslimSekli?: string | null;
+  dil?: "tr" | "en";
 };
 
 export class EksikBilgiHatasi extends Error {}
 
-export function teklifOlustur(urunler: TeklifSatirGirdi[]): TeklifOzeti {
+export function teklifOlustur(
+  urunler: TeklifSatirGirdi[],
+  secenek: TeklifSecenekleri = { paraBirimi: "TRY", kur: null, ihracat: false },
+): TeklifOzeti {
   if (urunler.length === 0) throw new EksikBilgiHatasi("Teklifte ürün yok.");
+  const dovizli = secenek.paraBirimi !== "TRY";
+  if (dovizli && (secenek.kur == null || !(secenek.kur > 0))) {
+    const ad = secenek.paraBirimi === "USD" ? "dolar" : "euro";
+    throw new EksikBilgiHatasi(`Teklif ${ad} olarak verilecek; yukarıdan ${ad} kurunu girin.`);
+  }
 
   const satirlar = urunler.map((u) => {
     const s = hesaplaUrun(u);
@@ -135,20 +162,22 @@ export function teklifOlustur(urunler: TeklifSatirGirdi[]): TeklifOzeti {
       const eksik = s.fireEksik ? "fire oranı" : s.karEksik ? "kâr marjı" : "döviz kuru";
       throw new EksikBilgiHatasi(`"${u.ad}" için ${eksik} girilmemiş.`);
     }
-    const birimFiyat = kurusaYuvarla(s.birim.teklif);
+    // Dövizli teklifte TL teklif fiyatı ihalenin kuruyla çevrilir ve sente yuvarlanır
+    const birimFiyat = kurusaYuvarla(dovizli ? s.birim.teklif / secenek.kur! : s.birim.teklif);
     return {
       ad: u.ad,
       aciklama: u.aciklama ?? "",
       adet: u.adet,
       birimFiyat,
       toplam: kurusaYuvarla(birimFiyat * u.adet),
-      kdvOrani: u.kdvOrani,
+      kdvOrani: secenek.ihracat ? 0 : u.kdvOrani,
     };
   });
 
   const araToplam = kurusaYuvarla(satirlar.reduce((t, s) => t + s.toplam, 0));
 
-  const oranlar = Array.from(new Set(satirlar.map((s) => s.kdvOrani))).sort((a, b) => a - b);
+  // İhracatta KDV satırı hiç gösterilmez
+  const oranlar = secenek.ihracat ? [] : Array.from(new Set(satirlar.map((s) => s.kdvOrani))).sort((a, b) => a - b);
   const kdvler = oranlar.map((oran) => {
     const matrah = kurusaYuvarla(
       satirlar.filter((s) => s.kdvOrani === oran).reduce((t, s) => t + s.toplam, 0),
@@ -158,5 +187,15 @@ export function teklifOlustur(urunler: TeklifSatirGirdi[]): TeklifOzeti {
 
   const genelToplam = kurusaYuvarla(araToplam + kdvler.reduce((t, k) => t + k.tutar, 0));
 
-  return { satirlar, araToplam, kdvler, genelToplam };
+  return {
+    satirlar,
+    araToplam,
+    kdvler,
+    genelToplam,
+    paraBirimi: secenek.paraBirimi,
+    kur: dovizli ? secenek.kur : null,
+    ihracat: secenek.ihracat,
+    teslimSekli: secenek.teslimSekli ?? null,
+    dil: secenek.dil ?? "tr",
+  };
 }
