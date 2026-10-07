@@ -24,7 +24,7 @@ export default async function RaporlarSayfasi({ searchParams }: Sayfa) {
 
   const ihaleler = ((data ?? []) as (Ihale & { ihale_urunleri: UrunKalemli[] })[]).map((i) => {
     const kurlar = ihaleKurlari({ usd_kuru: i.usd_kuru == null ? null : Number(i.usd_kuru), eur_kuru: i.eur_kuru == null ? null : Number(i.eur_kuru) });
-    return { ...i, toplam: ihaleToplami(i.ihale_urunleri.map(urunuDuzelt), kurlar) };
+    return { ...i, toplam: ihaleToplami(i.ihale_urunleri.map(urunuDuzelt), kurlar, i.teklif_para_birimi ?? "TRY") };
   });
   const olumlu = ihaleler.filter((i) => i.sonuc === "olumlu");
   const olumsuz = ihaleler.filter((i) => i.sonuc === "olumsuz");

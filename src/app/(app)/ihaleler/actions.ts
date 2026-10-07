@@ -18,6 +18,7 @@ import { HAZIR_URUN, PARA_BIRIMLERI, SEGMENTLER, TESLIM_SEKILLERI, URUN_GRUPLARI
 import { TCMB_ADRESI, tcmbXmlOku, type TcmbKurlari } from "@/lib/tcmb";
 import type { IhaleDosyasi, KalemSablonu, UrunKalemi, UrunKalemli } from "@/lib/tipler";
 import { SARTNAME_KLASORU } from "@/lib/dosya";
+import { yuvarlanmisFiyat } from "@/lib/maliyetGirdisi";
 import { tarihMetni } from "@/lib/format";
 import { belgeyiHazirlaAsync } from "@/lib/belgeMetni";
 import { yapilandirilmisOku } from "@/lib/ai";
@@ -266,7 +267,7 @@ export async function urunEkle(
   return { veri: urunuDuzelt({ ...(urun as UrunKalemli), urun_kalemleri: kalemler }) };
 }
 
-const URUN_ALANLARI = ["ad", "aciklama", "adet", "fire_orani", "kar_marji", "kdv_orani"] as const;
+const URUN_ALANLARI = ["ad", "aciklama", "adet", "fire_orani", "kar_marji", "kdv_orani", "yuvarlanmis_fiyat", "yuvarlanmis_para_birimi"] as const;
 type UrunAlani = (typeof URUN_ALANLARI)[number];
 
 export async function urunGuncelle(
@@ -285,6 +286,16 @@ export async function urunGuncelle(
     }
   }
   if ("ad" in temiz && !String(temiz.ad ?? "").trim()) return { hata: "Ürün adı boş olamaz." };
+  if ("yuvarlanmis_fiyat" in temiz && temiz.yuvarlanmis_fiyat != null && !(Number(temiz.yuvarlanmis_fiyat) > 0)) {
+    return { hata: "Yuvarlanmış fiyat 0'dan büyük olmalı." };
+  }
+  if (
+    "yuvarlanmis_para_birimi" in temiz &&
+    temiz.yuvarlanmis_para_birimi != null &&
+    !["TRY", "USD", "EUR"].includes(String(temiz.yuvarlanmis_para_birimi))
+  ) {
+    return { hata: "Geçersiz para birimi." };
+  }
   if ("kdv_orani" in temiz && temiz.kdv_orani == null) return { hata: "KDV oranı boş bırakılamaz." };
 
   const supabase = sunucuIstemcisi();
@@ -332,6 +343,8 @@ export async function urunKopyala(urunId: string, hedefIhaleId: string): Promise
       adet: urun.adet,
       fire_orani: urun.fire_orani,
       kar_marji: urun.kar_marji,
+      yuvarlanmis_fiyat: urun.yuvarlanmis_fiyat ?? null,
+      yuvarlanmis_para_birimi: urun.yuvarlanmis_para_birimi ?? null,
       // İhracat ihalesine kopyalanan üründe KDV yoktur; ihracattan yurt içine kopyalanırsa varsayılan KDV gelir
       kdv_orani: hedef.ihracat ? 0 : urun.kdv_orani === 0 ? ((await firmaAyarlariGetir(supabase))?.varsayilan_kdv_orani ?? 20) : urun.kdv_orani,
       sira: count ?? 0,
@@ -506,7 +519,12 @@ export async function musteriTeklifiOlustur(ihaleId: string): Promise<Sonuc<{ te
     const kurlar = ihaleKurlari(ihale);
     const paraBirimi = ihale.teklif_para_birimi ?? "TRY";
     ozet = teklifOlustur(
-      urunler.map((u) => ({ ...maliyetGirdisi(u, kurlar), ad: u.ad, aciklama: u.aciklama })),
+      urunler.map((u) => ({
+        ...maliyetGirdisi(u, kurlar, paraBirimi),
+        ad: u.ad,
+        aciklama: u.aciklama,
+        musteriFiyati: yuvarlanmisFiyat(u, paraBirimi),
+      })),
       {
         paraBirimi,
         kur: paraBirimi === "TRY" ? null : kurlar[paraBirimi],

@@ -48,6 +48,8 @@ Sıralama her zaman şu şekilde olmalı, değiştirilemez:
 
 **Kâr marjı sabit değildir.** Her ihalede kullanıcı farklı girer. Varsayılan değer atanmaz, slider veya input ile anlık değiştirilebilir olmalı; değişince net kâr ve birim fiyat anında güncellenmeli.
 
+**Fiyat yuvarlama:** Erbil'in isteğiyle (2026-10-07) kullanıcı hesaplanan teklif birim fiyatını yuvarlayabilir (ör. 666,60 → 665 / 670 ₺; dövizli teklifte teklif para biriminde). Yuvarlanmış fiyat teklif fiyatı olur, kâr = yuvarlanmış fiyat − fire dahil maliyet, gerçek kâr marjı gösterilir. Kâr marjı değiştirilince yuvarlama kalkar.
+
 ---
 
 ## MÜŞTERİ SEGMENTASYONU

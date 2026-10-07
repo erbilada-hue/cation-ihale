@@ -1,6 +1,6 @@
 // Kazanılan işler raporu: dönem aralığı ve ihale toplamları
 
-import { hesaplaUrun } from "./maliyet";
+import { hesaplaUrun, type TeklifParaBirimi } from "./maliyet";
 import { maliyetGirdisi, type Kurlar } from "./maliyetGirdisi";
 import { tarihMetni } from "./format";
 import type { UrunKalemli } from "./tipler";
@@ -65,11 +65,11 @@ export type IhaleToplami = {
 };
 
 /** İhaledeki ürünlerin güncel maliyetine göre teklif toplamı ve net kâr */
-export function ihaleToplami(urunler: UrunKalemli[], kurlar: Kurlar): IhaleToplami {
+export function ihaleToplami(urunler: UrunKalemli[], kurlar: Kurlar, teklifParaBirimi: TeklifParaBirimi = "TRY"): IhaleToplami {
   const t: IhaleToplami = { urunSayisi: urunler.length, adet: 0, teklif: 0, kdvDahil: 0, netKar: 0, eksik: false };
   for (const u of urunler) {
     t.adet += u.adet;
-    const s = hesaplaUrun(maliyetGirdisi(u, kurlar));
+    const s = hesaplaUrun(maliyetGirdisi(u, kurlar, teklifParaBirimi));
     if (s.toplam.teklif == null) {
       t.eksik = true;
       continue;
