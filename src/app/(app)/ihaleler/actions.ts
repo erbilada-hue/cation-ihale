@@ -547,6 +547,32 @@ export async function musteriTeklifiOlustur(ihaleId: string): Promise<Sonuc<{ te
   return { veri: { teklifId: data.id } };
 }
 
+/**
+ * Verilen bir teklifi siler. Hiç teklif kalmazsa ve ihale "Teklif" aşamasındaysa
+ * aşama "Maliyet"e geri alınır; daha ileri aşamalara dokunulmaz.
+ */
+export async function teklifSil(teklifId: string): Promise<Sonuc> {
+  const supabase = sunucuIstemcisi();
+  const { data: teklif } = await supabase.from("teklifler").select("ihale_id").eq("id", teklifId).maybeSingle();
+  if (!teklif) return { hata: "Teklif bulunamadı, sayfayı yenileyin." };
+
+  const { error } = await supabase.from("teklifler").delete().eq("id", teklifId);
+  if (error) return { hata: "Teklif silinemedi: " + error.message };
+
+  const { count } = await supabase
+    .from("teklifler")
+    .select("id", { count: "exact", head: true })
+    .eq("ihale_id", teklif.ihale_id);
+  if (count === 0) {
+    await supabase.from("ihaleler").update({ asama: "maliyet" }).eq("id", teklif.ihale_id).eq("asama", "teklif");
+  }
+
+  revalidatePath(`/ihaleler/${teklif.ihale_id}`);
+  revalidatePath("/ihaleler");
+  revalidatePath("/");
+  return { veri: null };
+}
+
 // ---------------------------------------------------------------------------
 // Şartname dosyaları (dosyanın kendisini tarayıcı doğrudan depoya yükler)
 // ---------------------------------------------------------------------------

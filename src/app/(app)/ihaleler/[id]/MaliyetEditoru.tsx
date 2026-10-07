@@ -22,6 +22,7 @@ import {
   marjTavsiyesiAl,
   musteriTeklifiOlustur,
   tcmbKurlariGetir,
+  teklifSil,
   urunEkle,
   urunGuncelle,
   urunKopyala,
@@ -75,6 +76,17 @@ export function MaliyetEditoru({
   const [kurlar, setKurlar] = useState(ilkKurlar);
   const [islemHatasi, setIslemHatasi] = useState<string | null>(null);
   const [teklifHazirlaniyor, setTeklifHazirlaniyor] = useState(false);
+  const [silinenTeklif, setSilinenTeklif] = useState<string | null>(null);
+
+  async function teklifiSil(id: string, no: string) {
+    if (!confirm(`${no} numaralı teklif silinsin mi? Bu işlem geri alınamaz.`)) return;
+    setSilinenTeklif(id);
+    setIslemHatasi(null);
+    const s = await teklifSil(id);
+    setSilinenTeklif(null);
+    if (s.hata) setIslemHatasi(s.hata);
+    else router.refresh();
+  }
   const [analizDosyasi, setAnalizDosyasi] = useState<IhaleDosyasi | null>(null);
   const [analizMesaji, setAnalizMesaji] = useState<string | null>(null);
   const [tcmbDurumu, setTcmbDurumu] = useState<{ yukleniyor: boolean; mesaj: string | null; hata: boolean }>({
@@ -465,6 +477,14 @@ export function MaliyetEditoru({
                     <a href={`/api/pdf/teklif/${t.id}`} target="_blank" rel="noopener" className="text-brand hover:underline">
                       PDF
                     </a>
+                    <button
+                      type="button"
+                      className="ml-4 text-red-600 hover:underline disabled:opacity-50"
+                      disabled={silinenTeklif === t.id}
+                      onClick={() => teklifiSil(t.id, t.teklif_no)}
+                    >
+                      {silinenTeklif === t.id ? "Siliniyor…" : "Sil"}
+                    </button>
                   </td>
                 </tr>
               ))}
