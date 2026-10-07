@@ -8,7 +8,7 @@ const SATIR_YUKSEKLIGI = 11.5;
 /** 260 pt genişlikte 9 puntoda bir satıra sığan yaklaşık karakter sayısı */
 const SATIR_KARAKTERI = 52;
 
-/** Sağdaki firma bilgileri bloğunun yaklaşık yüksekliği; logo bu yüksekliğe büyütülür */
+/** Sağdaki firma bilgileri bloğunun yaklaşık yüksekliği; logo bundan biraz daha büyük basılır */
 function firmaBlokYuksekligi(firma: FirmaAyarlari | null): number {
   const metinler = [firma?.firma_adi, firma?.adres, firma?.telefon && "Tel: " + firma.telefon, firma?.eposta, firma?.web];
   const satir = metinler.reduce((t, m) => t + (m ? Math.ceil(m.length / SATIR_KARAKTERI) : 0), 0);
@@ -136,7 +136,7 @@ export function MusteriTeklifiPdf({ teklif, ihale, firma }: { teklif: Teklif; ih
           <View>
             {firma?.logo_data_url ? (
               // eslint-disable-next-line jsx-a11y/alt-text
-              <Image src={firma.logo_data_url} style={[s.logo, { height: firmaBlokYuksekligi(firma), maxWidth: 240 }]} />
+              <Image src={firma.logo_data_url} style={[s.logo, { height: firmaBlokYuksekligi(firma) * 1.4, maxWidth: 250 }]} />
             ) : (
               <Text style={s.firmaAdi}>{firma?.firma_adi || "CATION"}</Text>
             )}
