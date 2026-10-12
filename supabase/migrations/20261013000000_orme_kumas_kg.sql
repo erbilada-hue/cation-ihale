@@ -1,4 +1,4 @@
--- Örme kumaş kalemleri kg ile hesaplanır (Erbil, 2026-10-12).
+-- Örme kumaş kalemleri kg ile hesaplanır, polo yaka ayrılır, dikiş ipliği çıkarılır (Erbil, 2026-10-12).
 -- Kütüphanede hâlâ metre olan örme kalemlerin birimi ve 1 adet için varsayılan kullanımı düzeltilir.
 -- Sadece birimi hâlâ 'm' olan satırlar değişir; kullanıcının elle düzelttiği kalemlere dokunulmaz.
 update public.kalem_sablonlari k
@@ -35,3 +35,7 @@ where not exists (
 -- 0 yaka ribanası polo yakadan az gider (Erbil, 2026-10-12): önceki halini çalıştıranlar için 0,02 → 0,01.
 update public.kalem_sablonlari set varsayilan_kullanim = 0.01
 where urun_grubu = 'tisort_polo' and ad = 'Yaka ribanası (0 yaka)' and varsayilan_kullanim = 0.02;
+
+-- Dikiş ipliği fason atölyesine aittir, maliyete ayrı kalem olarak girmez (Erbil, 2026-10-12).
+-- Sadece kütüphaneden çıkar; eski ihalelerdeki kalemler yerinde kalır.
+delete from public.kalem_sablonlari where lower(ad) like 'dikiş ipliği%';

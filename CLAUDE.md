@@ -104,6 +104,8 @@ Excel dosyası olarak sisteme yüklenir (`CATION_Kalem_Sablon_Kutuphanesi.xlsx`)
 
 **Ürün grupları:** Mont-Kaban, Pantolon-Şort, Tişört-Polo, Gömlek, Tulum-Önlük, Polar-Yelek-Yağmurluk, Şapka-Bere-Çorap
 
+**Dikiş ipliği** maliyette ayrı kalem değildir, fason atölyesine aittir (Erbil, 2026-10-12).
+
 **Nakliye payı** her üründe opsiyonel kalem olarak bulunur — teslim yeri uzaksa mutlaka eklenmeli, sık unutulan kalemdir.
 
 ---

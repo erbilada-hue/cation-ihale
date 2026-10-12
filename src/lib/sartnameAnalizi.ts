@@ -67,6 +67,7 @@ tur_gerekcesi alanına bunu tek kısa Türkçe cümleyle yaz (ör. "Kumaş grama
 - O ürün grubunun bütün zorunlu kalemlerini yaz.
 - hazir_urun grubunda ürünün kendisi (alış fiyatı) otomatik eklenir; onu yazma, sadece istenen opsiyonel kalemleri (logo baskı, etiket, ambalaj…) yaz.
 - Opsiyonel kalemlerden belgede açıkça istenenleri veya anahtar kelimeleri geçenleri ekle. Emin değilsen ekleme.
+- Dikiş ipliği fason atölyesine aittir, fason/dikim kalemine dahildir; ayrı kalem olarak yazma.
 - Teslim yeri firmanın adresinden farklı bir ilse ve listede "Nakliye" geçen bir kalem varsa onu da ekle.
 - Listedeki kalemlerin adlarını listede yazdığı gibi aynen kullan. Ürün için gereken ama listede karşılığı olmayan bir parça varsa (ör. kol bandı, kapşon ipi) kısa yeni bir adla ekle; listede karşılığı varsa yeni ad uydurma.
 - kullanim: 1 adet ürün için, ortalama beden (M/L) üzerinden, kesim (pastal) kaybı dahil miktar. Fire oranı ayrıca ekleneceği için kullanıma fire katma.
