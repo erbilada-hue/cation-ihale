@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { URUN_GRUPLARI } from "@/lib/sabitler";
-import { yuzdeYaz } from "@/lib/format";
-import type { AnalizSonucu } from "@/lib/sartnameAnalizi";
+import { BIRIMLER, URUN_GRUPLARI } from "@/lib/sabitler";
+import { sayiOku, sayiYaz, yuzdeYaz } from "@/lib/format";
+import { urunKalemleri, type AnalizKalemi, type AnalizSonucu } from "@/lib/sartnameAnalizi";
 import type { IhaleDosyasi, KalemSablonu, SegmentSablonu, UrunKalemli } from "@/lib/tipler";
 import { analizUygula, sartnameAnalizEt } from "@/app/(app)/ihaleler/actions";
 
@@ -25,9 +25,18 @@ type Satir = {
   urun_grubu: string;
   adet: string;
   aciklama: string;
-  opsiyonelIdler: string[];
-  /** Yapay zekânın bulduğu opsiyonel kalemler (kullanıcı işaretini kaldırabilir) */
-  bulunanIdler: string[];
+  kalemler: KalemSatiri[];
+};
+
+/** Zorunlu kalem her zaman eklenir; opsiyonel ve yeni kalemlerin işaretini kullanıcı kaldırabilir */
+type KalemSatiri = AnalizKalemi & { secili: boolean; kullanimMetni: string };
+
+const kalemSatirlari = (k: AnalizKalemi[]): KalemSatiri[] =>
+  k.map((x) => ({ ...x, secili: true, kullanimMetni: sayiYaz(x.kullanim) }));
+
+const kullanimGecersiz = (k: KalemSatiri) => {
+  const n = sayiOku(k.kullanimMetni);
+  return n != null && (Number.isNaN(n) || n < 0);
 };
 
 /**
@@ -60,8 +69,7 @@ export function SartnameAnalizi({ ihaleId, dosya, sablonlar, segmentler, oncekiS
             urun_grubu: u.urun_grubu,
             adet: u.adet != null ? String(u.adet) : "",
             aciklama: u.aciklama,
-            opsiyonelIdler: u.opsiyonelIdler,
-            bulunanIdler: u.opsiyonelIdler,
+            kalemler: kalemSatirlari(u.kalemler),
           })),
         );
       } catch {
@@ -82,6 +90,8 @@ export function SartnameAnalizi({ ihaleId, dosya, sablonlar, segmentler, oncekiS
         ? "Ürün adı boş olamaz."
         : seciliSatirlar.some(adetGecersiz)
           ? "Seçili her ürün için adet girin."
+          : seciliSatirlar.some((s) => s.kalemler.some((k) => k.secili && kullanimGecersiz(k)))
+            ? "Kullanım miktarlarından biri sayı değil."
           : tur === "brief" && !segment
             ? "Kalite segmentini seçin."
             : null;
@@ -101,7 +111,9 @@ export function SartnameAnalizi({ ihaleId, dosya, sablonlar, segmentler, oncekiS
           ad: r.ad.trim(),
           adet: Number(r.adet),
           aciklama: r.aciklama.trim(),
-          opsiyonelIdler: r.opsiyonelIdler,
+          kalemler: r.kalemler
+            .filter((k) => k.secili)
+            .map((k) => ({ sablonId: k.sablonId, ad: k.ad, birim: k.birim, kullanim: sayiOku(k.kullanimMetni) })),
         })),
       });
       if (s.hata !== undefined) return setHata(s.hata);
@@ -190,9 +202,8 @@ export function SartnameAnalizi({ ihaleId, dosya, sablonlar, segmentler, oncekiS
             <div className="mb-2 font-medium text-brand-dark">Tespit edilen ürünler</div>
             <ul className="space-y-2">
               {satirlar.map((r, i) => {
-                const ops = sablonlar.filter((s) => s.urun_grubu === r.urun_grubu && !s.zorunlu);
-                const zorunluSayisi = sablonlar.filter((s) => s.urun_grubu === r.urun_grubu && s.zorunlu).length;
-                const gosterilen = ops.filter((o) => r.bulunanIdler.includes(o.id));
+                const kalemDegistir = (j: number, d: Partial<KalemSatiri>) =>
+                  degistir(i, { kalemler: r.kalemler.map((k, x) => (x === j ? { ...k, ...d } : k)) });
                 return (
                   <li key={i} className={`rounded-lg border bg-white p-3 ${r.secili ? "border-cizgi" : "border-dashed border-cizgi opacity-60"}`}>
                     <div className="grid grid-cols-12 items-end gap-2">
@@ -215,7 +226,9 @@ export function SartnameAnalizi({ ihaleId, dosya, sablonlar, segmentler, oncekiS
                         <select
                           id={`a-grup-${i}`}
                           value={r.urun_grubu}
-                          onChange={(e) => degistir(i, { urun_grubu: e.target.value, opsiyonelIdler: [], bulunanIdler: [] })}
+                          onChange={(e) =>
+                            degistir(i, { urun_grubu: e.target.value, kalemler: kalemSatirlari(urunKalemleri(e.target.value, [], sablonlar)) })
+                          }
                           className="girdi"
                         >
                           {URUN_GRUPLARI.map((g) => (
@@ -241,27 +254,73 @@ export function SartnameAnalizi({ ihaleId, dosya, sablonlar, segmentler, oncekiS
                         <input id={`a-acik-${i}`} value={r.aciklama} onChange={(e) => degistir(i, { aciklama: e.target.value })} className="girdi" />
                       </div>
                     </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                      <span>{zorunluSayisi} zorunlu kalem otomatik açılır.</span>
-                      {gosterilen.length > 0 && <span>Şartnamede geçen ek kalemler:</span>}
-                      {gosterilen.map((o) => (
-                        <label key={o.id} className="flex items-center gap-1 rounded-full border border-cizgi px-2 py-0.5">
-                          <input
-                            type="checkbox"
-                            className="accent-brand"
-                            checked={r.opsiyonelIdler.includes(o.id)}
-                            onChange={(e) =>
-                              degistir(i, {
-                                opsiyonelIdler: e.target.checked
-                                  ? [...r.opsiyonelIdler, o.id]
-                                  : r.opsiyonelIdler.filter((x) => x !== o.id),
-                              })
-                            }
-                          />
-                          {o.ad}
-                        </label>
-                      ))}
-                    </div>
+                    {r.secili && (
+                      <div className="mt-3 overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead className="text-left text-slate-500">
+                            <tr>
+                              <th className="w-6 py-1" />
+                              <th className="py-1 font-medium">Kalem</th>
+                              <th className="w-28 whitespace-nowrap py-1 text-right font-medium">Kullanım (1 adet)</th>
+                              <th className="w-20 py-1 pl-2 font-medium">Birim</th>
+                              <th className="py-1 pl-2 font-medium">Nasıl hesaplandı</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-cizgi">
+                            {r.kalemler.map((k, j) => (
+                              <tr key={j} className={k.secili ? "" : "opacity-50"}>
+                                <td className="py-1">
+                                  <input
+                                    type="checkbox"
+                                    className="accent-brand"
+                                    checked={k.secili}
+                                    disabled={k.zorunlu}
+                                    onChange={(e) => kalemDegistir(j, { secili: e.target.checked })}
+                                    aria-label={`${k.ad} eklensin`}
+                                  />
+                                </td>
+                                <td className="py-1 text-brand-dark">
+                                  {k.ad}
+                                  {k.zorunlu ? (
+                                    <span className="ml-1 text-slate-400">zorunlu</span>
+                                  ) : k.sablonId == null ? (
+                                    <span className="ml-1 rounded bg-amber-50 px-1 text-amber-700">yeni kalem</span>
+                                  ) : null}
+                                </td>
+                                <td className="py-1">
+                                  <input
+                                    value={k.kullanimMetni}
+                                    inputMode="decimal"
+                                    aria-label={`${k.ad} kullanım`}
+                                    onChange={(e) => kalemDegistir(j, { kullanimMetni: e.target.value })}
+                                    className={`girdi-sayi py-0.5 text-xs ${kullanimGecersiz(k) ? "border-red-400" : ""}`}
+                                    placeholder="—"
+                                  />
+                                </td>
+                                <td className="py-1 pl-2">
+                                  <select
+                                    value={k.birim}
+                                    aria-label={`${k.ad} birim`}
+                                    onChange={(e) => kalemDegistir(j, { birim: e.target.value })}
+                                    className="girdi py-0.5 text-xs"
+                                  >
+                                    {BIRIMLER.map((b) => (
+                                      <option key={b} value={b}>
+                                        {b}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </td>
+                                <td className="py-1 pl-2 text-slate-500">{k.hesap || "Kütüphanedeki varsayılan"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Miktarlar yapay zekânın tahminidir, fire hariçtir. Kontrol edip gerekirse düzeltin; onaydan sonra da maliyet tablosunda değiştirebilirsiniz.
+                        </p>
+                      </div>
+                    )}
                   </li>
                 );
               })}

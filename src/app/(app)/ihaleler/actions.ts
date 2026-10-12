@@ -14,7 +14,7 @@ import {
   urunuDuzelt,
 } from "@/lib/veri";
 import { EksikBilgiHatasi, teklifOlustur } from "@/lib/maliyet";
-import { HAZIR_URUN, PARA_BIRIMLERI, SEGMENTLER, TESLIM_SEKILLERI, URUN_GRUPLARI } from "@/lib/sabitler";
+import { BIRIMLER, HAZIR_URUN, PARA_BIRIMLERI, SEGMENTLER, TESLIM_SEKILLERI, URUN_GRUPLARI } from "@/lib/sabitler";
 import { TCMB_ADRESI, tcmbXmlOku, type TcmbKurlari } from "@/lib/tcmb";
 import type { IhaleDosyasi, KalemSablonu, UrunKalemi, UrunKalemli } from "@/lib/tipler";
 import { SARTNAME_KLASORU } from "@/lib/dosya";
@@ -693,7 +693,14 @@ export type AnalizOnayi = {
   segment: string | null;
   kaynakDosya: string;
   ihale: { musteri: string; teslim_yeri: string; termin: string; son_teklif_tarihi: string };
-  urunler: { urun_grubu: string; ad: string; adet: number; aciklama: string; opsiyonelIdler: string[] }[];
+  urunler: {
+    urun_grubu: string;
+    ad: string;
+    adet: number;
+    aciklama: string;
+    /** Zorunlu kalemlerin tahmini kullanımı + kullanıcının bıraktığı opsiyonel ve yeni kalemler */
+    kalemler: { sablonId: string | null; ad: string; birim: string; kullanim: number | null }[];
+  }[];
 };
 
 /** Kullanıcının onayladığı analiz özetiyle ürünleri ve kalemleri oluşturur. */
@@ -704,6 +711,13 @@ export async function analizUygula(ihaleId: string, g: AnalizOnayi): Promise<Son
   if (g.urunler.length === 0) return { hata: "En az bir ürün seçin." };
   for (const u of g.urunler) {
     if (!Number.isInteger(u.adet) || u.adet <= 0) return { hata: `"${u.ad}" için adet girin.` };
+    for (const k of u.kalemler) {
+      if (!k.ad.trim()) return { hata: `"${u.ad}" ürününde adı boş bir kalem var.` };
+      if (!(BIRIMLER as readonly string[]).includes(k.birim)) return { hata: `"${k.ad}" için geçersiz birim.` };
+      if (k.kullanim != null && !(Number.isFinite(k.kullanim) && k.kullanim >= 0)) {
+        return { hata: `"${k.ad}" için kullanım miktarı geçersiz.` };
+      }
+    }
   }
 
   const supabase = sunucuIstemcisi();
@@ -736,25 +750,35 @@ export async function analizUygula(ihaleId: string, g: AnalizOnayi): Promise<Son
     if (s.hata !== undefined) {
       return { hata: `${eklenen.length} ürün eklendi, "${u.ad}" eklenemedi: ${s.hata}` };
     }
-    const ops = sablonlar.filter((t) => u.opsiyonelIdler.includes(t.id) && t.urun_grubu === u.urun_grubu && !t.zorunlu);
     let kalemler = s.veri.urun_kalemleri;
-    if (ops.length > 0) {
+
+    // Zorunlu kalemlere yapay zekânın (kullanıcının düzelttiği) kullanım ve birimi yazılır
+    for (const k of kalemler) {
+      const t = u.kalemler.find((x) => x.sablonId != null && x.sablonId === k.sablon_id);
+      if (!t || (t.kullanim === k.kullanim && t.birim === k.birim)) continue;
+      const { error: gHata } = await supabase.from("urun_kalemleri").update({ kullanim: t.kullanim, birim: t.birim }).eq("id", k.id);
+      if (gHata) return { hata: `"${u.ad}" için kalem miktarları yazılamadı: ${gHata.message}` };
+      kalemler = kalemler.map((x) => (x.id === k.id ? { ...x, kullanim: t.kullanim, birim: t.birim } : x));
+    }
+
+    // Opsiyonel kalemler ve kütüphanede olmayan yeni kalemler eklenir
+    const grubunSablonlari = sablonlar.filter((t) => t.urun_grubu === u.urun_grubu);
+    const mevcutAdlar = new Set(kalemler.map((k) => k.ad.toLocaleLowerCase("tr")));
+    const ekler = u.kalemler.flatMap((k) => {
+      const t = k.sablonId ? grubunSablonlari.find((x) => x.id === k.sablonId) : undefined;
+      if (t?.zorunlu) return [];
+      if (k.sablonId && !t) return [];
+      const ad = t?.ad ?? k.ad.trim();
+      if (mevcutAdlar.has(ad.toLocaleLowerCase("tr"))) return [];
+      mevcutAdlar.add(ad.toLocaleLowerCase("tr"));
+      return [{ sablon_id: t?.id ?? null, ad, birim: k.birim, kullanim: k.kullanim, birim_fiyat: t?.varsayilan_birim_fiyat ?? null }];
+    });
+    if (ekler.length > 0) {
       const { data, error: kHata } = await supabase
         .from("urun_kalemleri")
-        .insert(
-          ops.map((t, i) => ({
-            urun_id: s.veri.id,
-            sablon_id: t.id,
-            ad: t.ad,
-            zorunlu: false,
-            birim: t.birim,
-            kullanim: t.varsayilan_kullanim,
-            birim_fiyat: t.varsayilan_birim_fiyat,
-            sira: kalemler.length + i,
-          })),
-        )
+        .insert(ekler.map((k, i) => ({ ...k, urun_id: s.veri.id, zorunlu: false, sira: kalemler.length + i })))
         .select("*");
-      if (kHata) return { hata: `"${u.ad}" için opsiyonel kalemler eklenemedi: ${kHata.message}` };
+      if (kHata) return { hata: `"${u.ad}" için ek kalemler eklenemedi: ${kHata.message}` };
       kalemler = [...kalemler, ...(data as UrunKalemi[]).map(kalemiDuzelt)];
     }
     eklenen.push({ ...s.veri, urun_kalemleri: kalemler });
