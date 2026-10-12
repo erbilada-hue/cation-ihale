@@ -86,7 +86,7 @@ Dosyada sadece görsel ve pazarlama dili varsa ("durable fabric", "premium feel"
 
 Her iki senaryoda da maliyet tablosu oluşmadan önce kullanıcıya özet gösterilir (tespit edilen ürünler, adetler, seçilen kumaşlar) ve "Onayla ve Maliyet Oluştur" butonuyla onay alınır.
 
-**Kullanım tahmini:** Erbil'in isteğiyle (2026-10-12) analiz her ürünün kalemlerini ve 1 adet için kullanım miktarını da tahmin eder (ör. lakost polo: ana kumaş 0,27 kg, ribana yaka 0,02 kg, kol bandı 0,03 kg). Örme kumaş kg (gramaj × alan), dokuma m ile; fire kullanıma katılmaz. Her miktarın yanında kısa hesabı gösterilir, onay ekranında kullanıcı düzeltir. Listede olmayan gerekli parçalar "yeni kalem" olarak önerilir. Analiz, teklif verilmiş son ihalelerdeki ürünlerin onaylanmış miktarlarını örnek alır (her gruptan en yeni 3 ürün). Kütüphanede örme kalemler (tişört ana kumaş, ribana, polar) kg ile tutulur.
+**Kullanım tahmini:** Erbil'in isteğiyle (2026-10-12) analiz her ürünün kalemlerini ve 1 adet için kullanım miktarını da tahmin eder (ör. lakost polo: ana kumaş 0,27 kg, ribana yaka 0,02 kg, kol bandı 0,03 kg). Örme kumaş kg (gramaj × alan), dokuma m ile; fire kullanıma katılmaz. Her miktarın yanında kısa hesabı gösterilir, onay ekranında kullanıcı düzeltir. Listede olmayan gerekli parçalar "yeni kalem" olarak önerilir. Analiz, teklif verilmiş son ihalelerdeki ürünlerin onaylanmış miktarlarını örnek alır (her gruptan en yeni 3 ürün). Kütüphanede örme kalemler (tişört ana kumaş, ribana, polar) kg ile tutulur. Polo yaka ile 0 (bisiklet) yaka ribanası ayrı kalemdir; analiz yaka tipine göre birini seçer.
 
 Maliyet tablosunun üstünde kaynak göstergesi olur: "Şartnameye göre oluşturuldu · dosya.pdf" veya "Premium segment şablonuna göre oluşturuldu · brief.pdf"
 
