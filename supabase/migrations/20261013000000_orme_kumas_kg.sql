@@ -26,7 +26,7 @@ select 'tisort_polo', k.ad, false, 'kg', k.kullanim, k.kelimeler,
   coalesce((select sira from public.kalem_sablonlari where urun_grubu = 'tisort_polo' and ad = 'Yaka ribanası (0 yaka)'), 0)
 from (values
   ('Polo yaka', 0.02, array['polo yaka', 'lakost yaka', 'triko yaka', 'örme yaka', 'polo']),
-  ('Kol bandı (ribana)', 0.03, array['kol bandı', 'kol ribanası', 'kol ağzı', 'kol manşeti'])
+  ('Kol bandı (ribana)', 0.015, array['kol bandı', 'kol ribanası', 'kol ağzı', 'kol manşeti'])
 ) as k (ad, kullanim, kelimeler)
 where not exists (
   select 1 from public.kalem_sablonlari s where s.urun_grubu = 'tisort_polo' and s.ad = k.ad
@@ -39,3 +39,10 @@ where urun_grubu = 'tisort_polo' and ad = 'Yaka ribanası (0 yaka)' and varsayil
 -- Dikiş ipliği fason atölyesine aittir, maliyete ayrı kalem olarak girmez (Erbil, 2026-10-12).
 -- Sadece kütüphaneden çıkar; eski ihalelerdeki kalemler yerinde kalır.
 delete from public.kalem_sablonlari where lower(ad) like 'dikiş ipliği%';
+
+-- İnternetteki sarfiyat hesaplarına göre düzeltmeler (2026-10-12):
+-- kol bandı (2 adet) 6-14 gr, uzun kollu gömlek 150 cm en ile ~1,6 m.
+update public.kalem_sablonlari set varsayilan_kullanim = 0.015
+where urun_grubu = 'tisort_polo' and ad = 'Kol bandı (ribana)' and varsayilan_kullanim = 0.03;
+update public.kalem_sablonlari set varsayilan_kullanim = 1.6
+where urun_grubu = 'gomlek' and ad = 'Ana kumaş' and birim = 'm' and varsayilan_kullanim = 1.8;
