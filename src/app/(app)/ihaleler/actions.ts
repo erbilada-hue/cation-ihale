@@ -22,7 +22,15 @@ import { yuvarlanmisFiyat } from "@/lib/maliyetGirdisi";
 import { tarihMetni } from "@/lib/format";
 import { belgeyiHazirlaAsync } from "@/lib/belgeMetni";
 import { yapilandirilmisOku } from "@/lib/ai";
-import { ANALIZ_SISTEM_ISTEMI, AnalizSemasi, analiziEslestir, kutuphaneMetni, type AnalizSonucu } from "@/lib/sartnameAnalizi";
+import {
+  ANALIZ_SISTEM_ISTEMI,
+  AnalizSemasi,
+  analiziEslestir,
+  gecmisOrnekMetni,
+  kutuphaneMetni,
+  type AnalizSonucu,
+  type GecmisUrun,
+} from "@/lib/sartnameAnalizi";
 import { MARJ_SISTEM_ISTEMI, MarjSemasi, marjIstemi, oneriyiDuzelt, type MarjGirdisi, type MarjOnerisi } from "@/lib/marjTavsiyesi";
 import type { BetaContentBlockParam } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 
@@ -650,6 +658,36 @@ export async function dosyaSil(dosyaId: string): Promise<Sonuc> {
 // Şartname analizi (yapay zekâ). Analiz hiçbir şey kaydetmez; kullanıcı özeti onaylayınca analizUygula çalışır.
 // ---------------------------------------------------------------------------
 
+/**
+ * Teklif verilmiş son ihalelerdeki ürünler ve kalem miktarları (en yeniler önce).
+ * Kullanıcının düzeltip onayladığı gerçek miktarlar olduğu için analize örnek olarak verilir.
+ */
+async function gecmisUrunleriGetir(supabase: ReturnType<typeof sunucuIstemcisi>, haricIhaleId: string): Promise<GecmisUrun[]> {
+  const { data: teklifler } = await supabase
+    .from("teklifler")
+    .select("ihale_id")
+    .neq("ihale_id", haricIhaleId)
+    .order("created_at", { ascending: false })
+    .limit(60);
+  const ihaleIdleri = [...new Set((teklifler ?? []).map((t) => t.ihale_id as string))].slice(0, 20);
+  if (ihaleIdleri.length === 0) return [];
+  const { data } = await supabase
+    .from("ihale_urunleri")
+    .select("ihale_id, urun_grubu, ad, aciklama, urun_kalemleri(ad, birim, kullanim, sira)")
+    .in("ihale_id", ihaleIdleri);
+  const sira = new Map(ihaleIdleri.map((id, i) => [id, i]));
+  return (data ?? [])
+    .sort((a, b) => (sira.get(a.ihale_id) ?? 0) - (sira.get(b.ihale_id) ?? 0))
+    .map((u) => ({
+      urun_grubu: u.urun_grubu,
+      ad: u.ad,
+      aciklama: (u.aciklama ?? "").slice(0, 160),
+      kalemler: [...((u.urun_kalemleri ?? []) as { ad: string; birim: string; kullanim: number | string | null; sira: number }[])]
+        .sort((a, b) => a.sira - b.sira)
+        .map((k) => ({ ad: k.ad, birim: k.birim, kullanim: k.kullanim == null ? null : Number(k.kullanim) })),
+    }));
+}
+
 export async function sartnameAnalizEt(dosyaId: string): Promise<Sonuc<AnalizSonucu & { dosyaAdi: string }>> {
   const supabase = sunucuIstemcisi();
   const { data } = await supabase.from("ihale_dosyalari").select("*").eq("id", dosyaId).maybeSingle();
@@ -660,7 +698,12 @@ export async function sartnameAnalizEt(dosyaId: string): Promise<Sonuc<AnalizSon
   const hazir = await belgeyiHazirlaAsync(Buffer.from(await blob.arrayBuffer()), dosya.dosya_adi);
   if (hazir.hata !== undefined) return { hata: hazir.hata };
 
-  const [sablonlar, firma] = await Promise.all([kalemSablonlariniGetir(supabase), firmaAyarlariGetir(supabase)]);
+  const [sablonlar, firma, gecmis] = await Promise.all([
+    kalemSablonlariniGetir(supabase),
+    firmaAyarlariGetir(supabase),
+    gecmisUrunleriGetir(supabase, dosya.ihale_id),
+  ]);
+  const ornekler = gecmisOrnekMetni(gecmis);
   const b = hazir.icerik;
   const belge: BetaContentBlockParam =
     b.tur === "pdf"
@@ -674,7 +717,7 @@ export async function sartnameAnalizEt(dosyaId: string): Promise<Sonuc<AnalizSon
       belge,
       {
         type: "text",
-        text: `Dosya adı: ${dosya.dosya_adi}\nFirmanın adresi: ${firma?.adres || "belirtilmemiş"}\n\nÜrün grupları ve opsiyonel kalemleri:\n${kutuphaneMetni(sablonlar)}\n\nYukarıdaki dosyayı analiz et.`,
+        text: `Dosya adı: ${dosya.dosya_adi}\nFirmanın adresi: ${firma?.adres || "belirtilmemiş"}\n\nÜrün grupları ve opsiyonel kalemleri:\n${kutuphaneMetni(sablonlar)}\n\n${ornekler ? `Firmanın daha önce teklif verdiği ürünlerdeki kullanımlar (1 adet için):\n${ornekler}\n\n` : ""}Yukarıdaki dosyayı analiz et.`,
       },
     ],
     sema: AnalizSemasi,

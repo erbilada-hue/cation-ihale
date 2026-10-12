@@ -73,6 +73,7 @@ tur_gerekcesi alanına bunu tek kısa Türkçe cümleyle yaz (ör. "Kumaş grama
 - birim: verilen birimlerden biri. Örme kumaşlar (penye, süprem, lakost/pike, interlok, ribana, polar, sweat, scuba) kg ile hesaplanır: kg = gramaj (gr/m²) × ürünün kumaş alanı (m²) ÷ 1000. Dokuma kumaşlar (gabardin, kanvas, poplin, ripstop, softshell, astar) ile elyaf ve kapitone m ile hesaplanır; belgede en yoksa 150 cm en varsay. Düğme, etiket, fermuar gibi aksesuarlar adet; reflektör, biye, şerit, lastik gibi uzunluklar m; dikim/kesim/ütü işçiliği ve baskı adet.
 - Örnek (lakost polo tişört, 220 gr/m², ortalama beden): Ana kumaş 0,27 kg; ribana yaka 0,02 kg; kol bandı 0,03 kg; düğme 3 adet; dikim 1 adet.
 - hesap: kullanıcının kontrol edebilmesi için tek kısa satır: kullandığın gramaj, alan, en, adet gibi varsayımlar (ör. "220 gr/m² × 1,25 m² ≈ 0,27 kg", "Gramaj yazmıyor, 180 gr/m² varsayıldı"). Belgede yazan değerleri kullan; yazmayanı varsaydığını söyle.
+- Firmanın daha önce teklif verdiği ürünler verilmişse: aynı veya benzer üründe (aynı grup, benzer kumaş ve model) kullanım miktarlarını onlardan al, kumaş gramajı veya model farklıysa oranla. Bu durumda hesap alanında örnek aldığın ürünü belirt (ör. "Geçmiş teklif: Lakost polo tişört, 0,27 kg").
 - Miktarı makul bir şekilde tahmin edemiyorsan kullanim null olsun ve hesap alanına nedenini yaz.
 
 4) ihale: belgede geçiyorsa müşteri/kurum adı, teslim yeri, termin (ör. "Sözleşmeden itibaren 60 gün") ve son teklif tarihi (YYYY-MM-DD). Yoksa boş bırak.
@@ -96,6 +97,40 @@ export function kutuphaneMetni(sablonlar: KalemSablonu[]): string {
       ops.map(satir).join("\n") || "    (yok)",
     ].join("\n");
   }).join("\n");
+}
+
+/** Firmanın teklif verdiği geçmiş bir ürün ve onaylanmış kalem miktarları */
+export type GecmisUrun = {
+  urun_grubu: string;
+  ad: string;
+  aciklama: string;
+  kalemler: { ad: string; birim: string; kullanim: number | null }[];
+};
+
+const sayiMetni = (n: number) => String(Number(n.toFixed(4))).replace(".", ",");
+
+/**
+ * Geçmiş ürünlerden yapay zekâya örnek listesi: her gruptan en fazla `grupBasina` ürün (gelen sıra korunur,
+ * en yeniler önce verilmeli). Kullanımı girilmemiş kalemler yazılmaz; hiç kalemi kalmayan ürün atlanır.
+ */
+export function gecmisOrnekMetni(urunler: GecmisUrun[], grupBasina = 3): string {
+  const sayac = new Map<string, number>();
+  const gorulen = new Set<string>();
+  const satirlar: string[] = [];
+  for (const u of urunler) {
+    const kalemler = u.kalemler.filter((k) => k.kullanim != null && k.kullanim > 0);
+    if (kalemler.length === 0) continue;
+    const anahtar = `${u.urun_grubu}|${u.ad.trim().toLocaleLowerCase("tr")}`;
+    if (gorulen.has(anahtar)) continue;
+    const n = sayac.get(u.urun_grubu) ?? 0;
+    if (n >= grupBasina) continue;
+    sayac.set(u.urun_grubu, n + 1);
+    gorulen.add(anahtar);
+    const ozet = u.aciklama.trim() ? ` (${u.aciklama.trim()})` : "";
+    const miktarlar = kalemler.map((k) => `${k.ad} ${sayiMetni(k.kullanim as number)} ${k.birim}`).join("; ");
+    satirlar.push(`- ${u.urun_grubu} · ${u.ad.trim()}${ozet}: ${miktarlar}`);
+  }
+  return satirlar.join("\n");
 }
 
 export type AnalizKalemi = {

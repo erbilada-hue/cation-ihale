@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analiziEslestir, kutuphaneMetni, type AnalizCiktisi } from "./sartnameAnalizi";
+import { analiziEslestir, gecmisOrnekMetni, kutuphaneMetni, type AnalizCiktisi } from "./sartnameAnalizi";
 import type { KalemSablonu } from "./tipler";
 
 const sablon = (id: string, urun_grubu: string, ad: string, zorunlu = false, anahtar_kelimeler: string[] = []): KalemSablonu => ({
@@ -97,5 +97,41 @@ describe("kutuphaneMetni", () => {
       "mont_kaban (Mont-Kaban):\n  Zorunlu:\n    - Ana kumaş [m]\n  Opsiyonel:\n    - Reflektör bant [adet] (anahtar kelimeler: reflektör, EN ISO 20471)\n    - Nakliye payı [adet]",
     );
     expect(m).toContain("gomlek (Gömlek):\n  Zorunlu:\n    (yok)\n  Opsiyonel:\n    (yok)");
+  });
+});
+
+describe("gecmisOrnekMetni", () => {
+  const polo = (ad: string, aciklama = "") => ({
+    urun_grubu: "tisort_polo",
+    ad,
+    aciklama,
+    kalemler: [
+      { ad: "Ana kumaş", birim: "kg", kullanim: 0.27 },
+      { ad: "Ribana yaka", birim: "kg", kullanim: 0.02 },
+      { ad: "Baskı", birim: "adet", kullanim: null },
+    ],
+  });
+
+  it("kullanımı olan kalemleri Türkçe ondalıkla yazar, boşları atlar", () => {
+    expect(gecmisOrnekMetni([polo("Lakost polo", "220 gr pike")])).toBe(
+      "- tisort_polo · Lakost polo (220 gr pike): Ana kumaş 0,27 kg; Ribana yaka 0,02 kg",
+    );
+  });
+
+  it("grup başına sınır koyar, aynı adlı ürünü bir kez yazar, kalemsiz ürünü atlar", () => {
+    const metin = gecmisOrnekMetni(
+      [
+        polo("A"),
+        polo("a "),
+        polo("B"),
+        { urun_grubu: "gomlek", ad: "Boş", aciklama: "", kalemler: [{ ad: "Düğme", birim: "adet", kullanim: 0 }] },
+        polo("C"),
+      ],
+      2,
+    );
+    expect(metin.split("\n")).toEqual([
+      "- tisort_polo · A: Ana kumaş 0,27 kg; Ribana yaka 0,02 kg",
+      "- tisort_polo · B: Ana kumaş 0,27 kg; Ribana yaka 0,02 kg",
+    ]);
   });
 });
