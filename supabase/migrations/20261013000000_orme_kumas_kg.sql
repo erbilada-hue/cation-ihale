@@ -17,7 +17,7 @@ where k.urun_grubu = d.urun_grubu and k.ad = d.ad and k.birim = 'm';
 -- "Kol bandı (ribana)" ayrı kalem olarak eklenir. Ürünün yaka tipine göre biri seçildiği için yaka
 -- kalemleri opsiyoneldir. Tekrar çalıştırılırsa bir şey değişmez.
 update public.kalem_sablonlari
-set ad = 'Yaka ribanası (0 yaka)', zorunlu = false, birim = 'kg', varsayilan_kullanim = 0.02,
+set ad = 'Yaka ribanası (0 yaka)', zorunlu = false, birim = 'kg', varsayilan_kullanim = 0.01,
     anahtar_kelimeler = array['bisiklet yaka', '0 yaka', 'sıfır yaka', 'yuvarlak yaka', 'ribana yaka', 'yaka ribanası']
 where urun_grubu = 'tisort_polo' and ad = 'Ribana (yaka/kol)';
 
@@ -31,3 +31,7 @@ from (values
 where not exists (
   select 1 from public.kalem_sablonlari s where s.urun_grubu = 'tisort_polo' and s.ad = k.ad
 );
+
+-- 0 yaka ribanası polo yakadan az gider (Erbil, 2026-10-12): önceki halini çalıştıranlar için 0,02 → 0,01.
+update public.kalem_sablonlari set varsayilan_kullanim = 0.01
+where urun_grubu = 'tisort_polo' and ad = 'Yaka ribanası (0 yaka)' and varsayilan_kullanim = 0.02;
