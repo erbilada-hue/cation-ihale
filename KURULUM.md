@@ -18,7 +18,8 @@ Sistemi çalıştırmak için iki ücretsiz hesap gerekir: **Supabase** (veritab
    `20261010000000_sonuc_gorevler.sql`: ihale sonucu ve Genel Bakış görevleri;
    `20261011000000_ihracat.sql`: dövizli teklif, ihracat, teslim şekli;
    `20261012000000_yuvarlama.sql`: teklif fiyatını yuvarlama;
-   `20261013000000_orme_kumas_kg.sql`: örme kumaş kalemleri kg).
+   `20261013000000_orme_kumas_kg.sql`: örme kumaş kalemleri kg;
+   `20261109000000_ogrenme.sql`: ihaleyi yapay zekânın öğrenmesinden çıkarma).
 4. **Authentication → Sign In / Providers** sayfasında **Allow new users to sign up** ayarını kapatın.
    Böylece sadece sizin davet ettiğiniz kişiler girebilir.
 5. İlk kullanıcıyı (kendinizi) **Authentication → Users → Add user → Create new user** ile oluşturun.

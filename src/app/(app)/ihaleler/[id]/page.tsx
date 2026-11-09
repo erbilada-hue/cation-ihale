@@ -16,6 +16,7 @@ import { tarihYaz } from "@/lib/format";
 import { MaliyetEditoru } from "./MaliyetEditoru";
 import { IhaleSilButonu } from "./IhaleSilButonu";
 import { IhaleSonucu } from "./IhaleSonucu";
+import { OgrenmeIsareti } from "./OgrenmeIsareti";
 
 export const dynamic = "force-dynamic";
 // Şartname analizi (yapay zekâ) uzun şartnamelerde bir-iki dakika sürebilir
@@ -91,6 +92,7 @@ export default async function IhaleDetaySayfasi({ params }: { params: { id: stri
       </div>
 
       <IhaleSonucu ihaleId={ihale.id} sonuc={ihale.sonuc ?? null} sonucTarihi={ihale.sonuc_tarihi ?? null} />
+      <OgrenmeIsareti ihaleId={ihale.id} dahil={ihale.ogrenmeye_dahil !== false} />
 
       <div
         className={`mb-2 rounded-lg border px-4 py-2.5 text-sm ${
