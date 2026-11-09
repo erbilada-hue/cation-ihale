@@ -20,6 +20,7 @@ Verilen ürün, maliyet ve firmanın geçmiş marjlarına bakarak bir kâr marj�
 - onerilen: tek bir yüzde (ondalık olabilir, ör. 12.5), alt ve ust: makul aralık.
 - gerekceler: 2-4 kısa, somut Türkçe madde. Verilen rakamlara dayan (adet büyüklüğü, maliyetteki en büyük kalemler, dövizli kalem riski, termin süresi, teslim yeri, geçmiş marjlar). Genel laf yazma.
 - Geçmiş veri yoksa bunu bir gerekçede açıkça söyle; uydurma piyasa verisi verme.
+- Geçmiş marjlarda sonucu olanlara özellikle bak: kazanılan ihalelerin marjı rekabetçi seviyeyi, kaybedilenlerin marjı fazla yüksek kalmış olabilecek seviyeyi gösterir. Benzer adet ve üründe kaybedilen marjın üstünü önerme; önerirsen nedenini yaz.
 - Büyük adetli kamu ihalelerinde rekabet yüksektir, marj genelde düşüktür; küçük adetli, özel üretim veya kısa terminli işlerde daha yüksek olabilir.
 - Kararı kullanıcı verir; sen sadece öneri sunarsın.`;
 
@@ -33,7 +34,7 @@ export type MarjGirdisi = {
   /** En büyük kalemler: ad, birim tutar TL, para birimi */
   kalemler: { ad: string; tutar: number; paraBirimi: string }[];
   /** Firmanın aynı ürün grubunda daha önce kullandığı marjlar */
-  gecmis: { ad: string; adet: number; marj: number; asama: string; tarih: string }[];
+  gecmis: { ad: string; adet: number; marj: number; asama: string; sonuc?: "olumlu" | "olumsuz" | null; tarih: string }[];
 };
 
 const tl = (n: number) => n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " TL";
@@ -46,7 +47,11 @@ export function marjIstemi(g: MarjGirdisi): string {
     .join("\n");
   const gecmis = g.gecmis.length
     ? g.gecmis
-        .map((x) => `- ${x.tarih} · ${x.ad} · ${x.adet.toLocaleString("tr-TR")} adet · marj %${x.marj} · aşama: ${asamaAdi(x.asama)}`)
+        .map(
+          (x) =>
+            `- ${x.tarih} · ${x.ad} · ${x.adet.toLocaleString("tr-TR")} adet · marj %${x.marj} · aşama: ${asamaAdi(x.asama)}` +
+            (x.sonuc === "olumlu" ? " · sonuç: KAZANILDI" : x.sonuc === "olumsuz" ? " · sonuç: kaybedildi" : ""),
+        )
         .join("\n")
     : "(bu ürün grubunda geçmiş marj kaydı yok)";
   return `Ürün: ${g.urun.ad} (${urunGrubuAdi(g.urun.urun_grubu)})
@@ -60,7 +65,7 @@ Fire: ${g.fireOrani != null ? `%${g.fireOrani}` : "girilmedi"} · Fire dahil bir
 En büyük kalemler (birim):
 ${kalemler || "-"}
 
-Firmanın aynı ürün grubundaki geçmiş marjları ("Sipariş" ve sonrası aşamadaki ihaleler siparişe dönmüştür):
+Firmanın aynı ürün grubundaki geçmiş marjları ("Sipariş" ve sonrası aşamadaki ihaleler siparişe dönmüştür; sonucu işaretlenenlerde kazanıldı/kaybedildi yazar):
 ${gecmis}`;
 }
 

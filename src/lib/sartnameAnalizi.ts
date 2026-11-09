@@ -75,7 +75,7 @@ tur_gerekcesi alanına bunu tek kısa Türkçe cümleyle yaz (ör. "Kumaş grama
 - Tişört-Polo'da yaka tipine göre seç: bisiklet (0) yaka tişörtte "Yaka ribanası (0 yaka)" (yaklaşık 0,01 kg), polo yakada "Polo yaka" (yaklaşık 0,02 kg, 0 yakadan fazla gider); ikisini aynı üründe yazma. Polo yakada kol ağzı ribanalıysa "Kol bandı (ribana)" ekle.
 - Örnek (lakost polo tişört, 220 gr/m², ortalama beden): Ana kumaş 0,27 kg; Polo yaka 0,02 kg; Kol bandı (ribana) 0,015 kg; düğme 3 adet; dikim 1 adet.
 - hesap: kullanıcının kontrol edebilmesi için tek kısa satır: kullandığın gramaj, alan, en, adet gibi varsayımlar (ör. "220 gr/m² × 1,25 m² ≈ 0,27 kg", "Gramaj yazmıyor, 180 gr/m² varsayıldı"). Belgede yazan değerleri kullan; yazmayanı varsaydığını söyle.
-- Firmanın daha önce teklif verdiği ürünler verilmişse: aynı veya benzer üründe (aynı grup, benzer kumaş ve model) kullanım miktarlarını onlardan al, kumaş gramajı veya model farklıysa oranla. Bu durumda hesap alanında örnek aldığın ürünü belirt (ör. "Geçmiş teklif: Lakost polo tişört, 0,27 kg").
+- Firmanın daha önce teklif verdiği ürünler verilmişse: aynı veya benzer üründe (aynı grup, benzer kumaş ve model) kullanım miktarlarını onlardan al, kumaş gramajı veya model farklıysa oranla. Birden fazla benzer ürün varsa en çok benzeyeni seç; [kazanıldı] işaretli ürünlerin miktarları üretimde denenmiştir, onlara öncelik ver. Bu durumda hesap alanında örnek aldığın ürünü belirt (ör. "Geçmiş teklif: Lakost polo tişört, 0,27 kg").
 - Miktarı makul bir şekilde tahmin edemiyorsan kullanim null olsun ve hesap alanına nedenini yaz.
 
 4) ihale: belgede geçiyorsa müşteri/kurum adı, teslim yeri, termin (ör. "Sözleşmeden itibaren 60 gün") ve son teklif tarihi (YYYY-MM-DD). Yoksa boş bırak.
@@ -106,6 +106,8 @@ export type GecmisUrun = {
   urun_grubu: string;
   ad: string;
   aciklama: string;
+  /** İhale olumlu sonuçlandıysa: miktarlar sahada denenmiş, daha güvenilir */
+  kazanildi?: boolean;
   kalemler: { ad: string; birim: string; kullanim: number | null }[];
 };
 
@@ -115,7 +117,7 @@ const sayiMetni = (n: number) => String(Number(n.toFixed(4))).replace(".", ",");
  * Geçmiş ürünlerden yapay zekâya örnek listesi: her gruptan en fazla `grupBasina` ürün (gelen sıra korunur,
  * en yeniler önce verilmeli). Kullanımı girilmemiş kalemler yazılmaz; hiç kalemi kalmayan ürün atlanır.
  */
-export function gecmisOrnekMetni(urunler: GecmisUrun[], grupBasina = 3): string {
+export function gecmisOrnekMetni(urunler: GecmisUrun[], grupBasina = 5): string {
   const sayac = new Map<string, number>();
   const gorulen = new Set<string>();
   const satirlar: string[] = [];
@@ -130,7 +132,7 @@ export function gecmisOrnekMetni(urunler: GecmisUrun[], grupBasina = 3): string 
     gorulen.add(anahtar);
     const ozet = u.aciklama.trim() ? ` (${u.aciklama.trim()})` : "";
     const miktarlar = kalemler.map((k) => `${k.ad} ${sayiMetni(k.kullanim as number)} ${k.birim}`).join("; ");
-    satirlar.push(`- ${u.urun_grubu} · ${u.ad.trim()}${ozet}: ${miktarlar}`);
+    satirlar.push(`- ${u.urun_grubu} · ${u.ad.trim()}${u.kazanildi ? " [kazanıldı]" : ""}${ozet}: ${miktarlar}`);
   }
   return satirlar.join("\n");
 }

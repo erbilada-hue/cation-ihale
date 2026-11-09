@@ -42,6 +42,17 @@ export async function sablonKaydet(id: string | null, satir: SablonSatiri): Prom
   return { veri: null };
 }
 
+/** Ayarlar → Yapay zekânın öğrenmesi: geçmiş tekliflerdeki ortanca miktarı kütüphane varsayılanı yapar */
+export async function sablonKullanimiGuncelle(id: string, kullanim: number): Promise<Sonuc> {
+  if (!Number.isFinite(kullanim) || kullanim < 0) return { hata: "Kullanım geçersiz." };
+  const supabase = sunucuIstemcisi();
+  const { error } = await supabase.from("kalem_sablonlari").update({ varsayilan_kullanim: kullanim }).eq("id", id);
+  if (error) return { hata: "Kaydedilemedi: " + error.message };
+  revalidatePath("/kalem-kutuphanesi");
+  revalidatePath("/ayarlar");
+  return { veri: null };
+}
+
 export async function sablonSil(id: string): Promise<Sonuc> {
   const supabase = sunucuIstemcisi();
   const { error } = await supabase.from("kalem_sablonlari").delete().eq("id", id);

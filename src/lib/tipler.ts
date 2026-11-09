@@ -69,6 +69,8 @@ export type Ihale = {
   teslim_sekli: string | null;
   teklif_dili: "tr" | "en";
   sonuc_tarihi: string | null;
+  /** false ise yapay zekâ bu ihaleyi örnek almaz (kullanım miktarları ve kâr marjı) */
+  ogrenmeye_dahil?: boolean;
   notlar: string;
   created_at: string;
   updated_at: string;

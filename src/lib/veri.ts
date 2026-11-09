@@ -174,3 +174,30 @@ export async function bekleyenTalepleriGetir(supabase: Supabase) {
     .order("gonderim_zamani");
   return (data ?? []) as FiyatTalebi[];
 }
+
+/**
+ * Yapay zekânın örnek aldığı ihaleler: teklif verilmiş veya olumlu sonuçlanmış, öğrenmenin dışında bırakılmamış.
+ * Kazanılanlar önce, sonra en yeni teklif verilenler.
+ */
+export async function ogrenilenIhaleler(
+  supabase: Supabase,
+  haricIhaleId?: string,
+  enFazla = 30,
+): Promise<{ id: string; kazanildi: boolean }[]> {
+  const [{ data: teklifler }, { data: kazanilan }] = await Promise.all([
+    supabase.from("teklifler").select("ihale_id, created_at").order("created_at", { ascending: false }).limit(300),
+    supabase.from("ihaleler").select("id, sonuc_tarihi").eq("sonuc", "olumlu").order("sonuc_tarihi", { ascending: false }).limit(100),
+  ]);
+  const sira = [
+    ...(kazanilan ?? []).map((x) => x.id as string),
+    ...(teklifler ?? []).map((t) => t.ihale_id as string),
+  ].filter((id, i, l) => id !== haricIhaleId && l.indexOf(id) === i);
+  if (sira.length === 0) return [];
+  // Hepsi seçilir; işaret sütunu yoksa (SQL çalıştırılmamışsa) herkes dahil sayılır
+  const { data } = await supabase.from("ihaleler").select("*").in("id", sira.slice(0, 200));
+  const bilgi = new Map((data ?? []).map((x) => [x.id as string, x as { sonuc: string | null; ogrenmeye_dahil?: boolean }]));
+  return sira
+    .filter((id) => bilgi.has(id) && bilgi.get(id)!.ogrenmeye_dahil !== false)
+    .slice(0, enFazla)
+    .map((id) => ({ id, kazanildi: bilgi.get(id)!.sonuc === "olumlu" }));
+}

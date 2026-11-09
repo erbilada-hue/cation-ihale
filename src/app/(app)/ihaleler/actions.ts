@@ -10,6 +10,7 @@ import {
   kalemSablonlariniGetir,
   kalemiDuzelt,
   maliyetGirdisi,
+  ogrenilenIhaleler,
   urunleriGetir,
   urunuDuzelt,
 } from "@/lib/veri";
@@ -659,29 +660,28 @@ export async function dosyaSil(dosyaId: string): Promise<Sonuc> {
 // ---------------------------------------------------------------------------
 
 /**
- * Teklif verilmiş son ihalelerdeki ürünler ve kalem miktarları (en yeniler önce).
+ * Teklif verilmiş veya kazanılmış ihalelerdeki ürünler ve kalem miktarları (kazanılanlar ve en yeniler önce).
  * Kullanıcının düzeltip onayladığı gerçek miktarlar olduğu için analize örnek olarak verilir.
  */
 async function gecmisUrunleriGetir(supabase: ReturnType<typeof sunucuIstemcisi>, haricIhaleId: string): Promise<GecmisUrun[]> {
-  const { data: teklifler } = await supabase
-    .from("teklifler")
-    .select("ihale_id")
-    .neq("ihale_id", haricIhaleId)
-    .order("created_at", { ascending: false })
-    .limit(60);
-  const ihaleIdleri = [...new Set((teklifler ?? []).map((t) => t.ihale_id as string))].slice(0, 20);
-  if (ihaleIdleri.length === 0) return [];
+  const ihaleler = await ogrenilenIhaleler(supabase, haricIhaleId);
+  if (ihaleler.length === 0) return [];
   const { data } = await supabase
     .from("ihale_urunleri")
     .select("ihale_id, urun_grubu, ad, aciklama, urun_kalemleri(ad, birim, kullanim, sira)")
-    .in("ihale_id", ihaleIdleri);
-  const sira = new Map(ihaleIdleri.map((id, i) => [id, i]));
+    .in(
+      "ihale_id",
+      ihaleler.map((i) => i.id),
+    );
+  const sira = new Map(ihaleler.map((ih, i) => [ih.id, i]));
+  const kazanilan = new Set(ihaleler.filter((i) => i.kazanildi).map((i) => i.id));
   return (data ?? [])
     .sort((a, b) => (sira.get(a.ihale_id) ?? 0) - (sira.get(b.ihale_id) ?? 0))
     .map((u) => ({
       urun_grubu: u.urun_grubu,
       ad: u.ad,
       aciklama: (u.aciklama ?? "").slice(0, 160),
+      kazanildi: kazanilan.has(u.ihale_id),
       kalemler: [...((u.urun_kalemleri ?? []) as { ad: string; birim: string; kullanim: number | string | null; sira: number }[])]
         .sort((a, b) => a.sira - b.sira)
         .map((k) => ({ ad: k.ad, birim: k.birim, kullanim: k.kullanim == null ? null : Number(k.kullanim) })),
@@ -831,6 +831,16 @@ export async function analizUygula(ihaleId: string, g: AnalizOnayi): Promise<Son
   return { veri: eklenen };
 }
 
+/** İhale yapay zekânın örnek aldığı ihalelere dahil mi (kullanım miktarları ve kâr marjı önerisi) */
+export async function ogrenmeIsaretiKaydet(ihaleId: string, dahil: boolean): Promise<Sonuc> {
+  const supabase = sunucuIstemcisi();
+  const { error } = await supabase.from("ihaleler").update({ ogrenmeye_dahil: dahil }).eq("id", ihaleId);
+  if (error) return { hata: "Kaydedilemedi: " + error.message };
+  revalidatePath(`/ihaleler/${ihaleId}`);
+  revalidatePath("/ayarlar");
+  return { veri: null };
+}
+
 // ---------------------------------------------------------------------------
 // Kâr marjı tavsiyesi (yapay zekâ). Sadece öneri döner; marjı kullanıcı uygular.
 // ---------------------------------------------------------------------------
@@ -846,25 +856,34 @@ export async function marjTavsiyesiAl(
   const ihale = await ihaleGetir(supabase, urun.ihale_id as string);
   if (!ihale) return { hata: "İhale bulunamadı." };
 
-  // Aynı ürün grubunda diğer ihalelerde girilmiş marjlar (en yeni 15)
+  // Aynı ürün grubunda diğer ihalelerde girilmiş marjlar ve ihalenin sonucu (en yeni 20).
+  // Öğrenmenin dışında bırakılan ihaleler sayılmaz.
   const { data: gecmisVeri } = await supabase
     .from("ihale_urunleri")
-    .select("ad, adet, kar_marji, created_at, ihaleler!inner(id, asama)")
+    .select("ad, adet, kar_marji, created_at, ihaleler!inner(*)")
     .eq("urun_grubu", urun.urun_grubu)
     .neq("ihale_id", ihale.id)
     .not("kar_marji", "is", null)
     .order("created_at", { ascending: false })
-    .limit(15);
-  const gecmis = (gecmisVeri ?? []).map((x) => {
-    const ih = x.ihaleler as unknown as { asama: string } | { asama: string }[];
-    return {
-      ad: x.ad as string,
-      adet: Number(x.adet),
-      marj: Number(x.kar_marji),
-      asama: (Array.isArray(ih) ? ih[0]?.asama : ih?.asama) ?? "",
-      tarih: tarihMetni(new Date(x.created_at as string)),
-    };
-  });
+    .limit(30);
+  type GecmisIhale = { asama: string; sonuc: "olumlu" | "olumsuz" | null; ogrenmeye_dahil?: boolean };
+  const gecmis = (gecmisVeri ?? [])
+    .map((x) => {
+      const h = x.ihaleler as unknown as GecmisIhale | GecmisIhale[];
+      const ih = Array.isArray(h) ? h[0] : h;
+      return {
+        dahil: ih?.ogrenmeye_dahil !== false,
+        ad: x.ad as string,
+        adet: Number(x.adet),
+        marj: Number(x.kar_marji),
+        asama: ih?.asama ?? "",
+        sonuc: ih?.sonuc ?? null,
+        tarih: tarihMetni(new Date(x.created_at as string)),
+      };
+    })
+    .filter((x) => x.dahil)
+    .slice(0, 20)
+    .map(({ dahil: _, ...x }) => x);
 
   const s = await yapilandirilmisOku({
     sistem: MARJ_SISTEM_ISTEMI,
