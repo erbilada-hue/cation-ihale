@@ -27,7 +27,7 @@ export default function AramaKutusu({ etiket, ipucu }: { etiket: string; ipucu: 
       value={arama}
       onChange={(e) => setArama(e.target.value)}
       placeholder={ipucu}
-      className="girdi w-72"
+      className="girdi w-full sm:w-72"
     />
   );
 }
