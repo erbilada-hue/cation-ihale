@@ -19,9 +19,9 @@ export function MusteriFormu({ musteri }: { musteri?: Musteri }) {
   const [durum, eylem] = useFormState(musteriKaydet, BOS);
   const m = musteri;
   return (
-    <form action={eylem} className="kart grid grid-cols-2 gap-4 p-6">
+    <form action={eylem} className="kart grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-6">
       {m && <input type="hidden" name="id" value={m.id} />}
-      <div className="col-span-2">
+      <div className="sm:col-span-2">
         <label className="etiket" htmlFor="ad">Müşteri adı</label>
         <input id="ad" name="ad" defaultValue={m?.ad} required className="girdi" placeholder="Örn. Anadolu Efes" />
       </div>
@@ -41,11 +41,11 @@ export function MusteriFormu({ musteri }: { musteri?: Musteri }) {
         <label className="etiket" htmlFor="adres">Adres</label>
         <input id="adres" name="adres" defaultValue={m?.adres} className="girdi" />
       </div>
-      <div className="col-span-2">
+      <div className="sm:col-span-2">
         <label className="etiket" htmlFor="notlar">Notlar</label>
         <textarea id="notlar" name="notlar" defaultValue={m?.notlar} rows={2} className="girdi" />
       </div>
-      <div className="col-span-2 flex items-center gap-4">
+      <div className="sm:col-span-2 flex items-center gap-4">
         <KaydetButonu yeni={!m} />
         {durum.hata && <span className="text-sm text-red-600">{durum.hata}</span>}
         {durum.basari && <span className="text-sm text-green-700">{durum.basari}</span>}

@@ -43,3 +43,13 @@
     @apply font-mono tabular-nums;
   }
 }
+
+/* Telefonda yazı kutusuna dokununca sayfanın yakınlaşmaması için (iPhone 16px altını büyütür) */
+@media (max-width: 767px) {
+  .girdi,
+  .girdi-sayi,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

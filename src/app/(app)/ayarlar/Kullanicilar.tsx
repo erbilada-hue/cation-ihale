@@ -60,7 +60,7 @@ function KullaniciEkleFormu() {
   return (
     <form onSubmit={ekle} className="space-y-3 border-t border-cizgi pt-4">
       <div className="text-sm font-medium text-brand-dark">Kullanıcı ekle</div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div>
           <label className="etiket" htmlFor="k-ad">Ad soyad</label>
           <input id="k-ad" value={ad} onChange={(e) => setAd(e.target.value)} className="girdi" placeholder="Örn. Ayşe Yılmaz" />
@@ -108,86 +108,88 @@ function KullaniciSatirlari({ kullanicilar, benimId }: { kullanicilar: Kullanici
   const [bekliyor, basla] = useTransition();
 
   return (
-    <table className="w-full text-sm">
-      <thead className="border-b border-cizgi text-left text-xs text-slate-500">
-        <tr>
-          <th className="py-2 pr-4 font-medium">Ad soyad</th>
-          <th className="py-2 pr-4 font-medium">E-posta</th>
-          <th className="py-2 pr-4 font-medium">Son giriş</th>
-          <th className="py-2 text-right font-medium" />
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-cizgi">
-        {kullanicilar.map((k) => (
-          <tr key={k.id} className="align-top">
-            <td className="py-3 pr-4">
-              {k.ad || <span className="text-slate-400">—</span>}
-              {k.id === benimId && <span className="rozet ml-2 bg-brand-soft text-brand">siz</span>}
-            </td>
-            <td className="py-3 pr-4 text-slate-600">{k.eposta}</td>
-            <td className="rakam py-3 pr-4 text-slate-600">{k.sonGiris ? tarihYaz(k.sonGiris) : "Hiç girmedi"}</td>
-            <td className="py-3 text-right">
-              {k.id !== benimId && (
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    className="btn-ikincil btn-kucuk"
-                    onClick={() => {
-                      setSifreAcik(sifreAcik === k.id ? null : k.id);
-                      setYeniSifre(sifreUret());
-                      setSonuc(null);
-                    }}
-                  >
-                    Şifre belirle
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-tehlike btn-kucuk"
-                    disabled={bekliyor}
-                    onClick={() => {
-                      if (!confirm(`${k.ad || k.eposta} kaldırılsın mı? Bu kişi artık sisteme giremez. Girdiği ihaleler ve fiyatlar silinmez.`)) return;
-                      basla(async () => {
-                        const s = await kullaniciSil(k.id);
-                        setSonuc({ id: k.id, s });
-                        if (!s.hata) router.refresh();
-                      });
-                    }}
-                  >
-                    Kaldır
-                  </button>
-                </div>
-              )}
-              {sifreAcik === k.id && (
-                <div className="mt-2 flex items-center justify-end gap-2">
-                  <div className="w-72">
-                    <SifreGirdisi id={`s-${k.id}`} deger={yeniSifre} degistir={setYeniSifre} />
-                  </div>
-                  <button
-                    type="button"
-                    className="btn-birincil btn-kucuk"
-                    disabled={bekliyor}
-                    onClick={() =>
-                      basla(async () => {
-                        const s = await kullaniciSifresiBelirle(k.id, yeniSifre);
-                        setSonuc({ id: k.id, s: s.hata ? s : { mesaj: `Yeni şifre kaydedildi: ${yeniSifre} — kişiye siz iletin.` } });
-                        if (!s.hata) setSifreAcik(null);
-                      })
-                    }
-                  >
-                    Kaydet
-                  </button>
-                </div>
-              )}
-              {sonuc?.id === k.id && (
-                <div className="mt-1">
-                  <Mesaj s={sonuc.s} />
-                </div>
-              )}
-            </td>
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[36rem] text-sm">
+        <thead className="border-b border-cizgi text-left text-xs text-slate-500">
+          <tr>
+            <th className="py-2 pr-4 font-medium">Ad soyad</th>
+            <th className="py-2 pr-4 font-medium">E-posta</th>
+            <th className="py-2 pr-4 font-medium">Son giriş</th>
+            <th className="py-2 text-right font-medium" />
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody className="divide-y divide-cizgi">
+          {kullanicilar.map((k) => (
+            <tr key={k.id} className="align-top">
+              <td className="py-3 pr-4">
+                {k.ad || <span className="text-slate-400">—</span>}
+                {k.id === benimId && <span className="rozet ml-2 bg-brand-soft text-brand">siz</span>}
+              </td>
+              <td className="py-3 pr-4 text-slate-600">{k.eposta}</td>
+              <td className="rakam py-3 pr-4 text-slate-600">{k.sonGiris ? tarihYaz(k.sonGiris) : "Hiç girmedi"}</td>
+              <td className="py-3 text-right">
+                {k.id !== benimId && (
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      className="btn-ikincil btn-kucuk"
+                      onClick={() => {
+                        setSifreAcik(sifreAcik === k.id ? null : k.id);
+                        setYeniSifre(sifreUret());
+                        setSonuc(null);
+                      }}
+                    >
+                      Şifre belirle
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-tehlike btn-kucuk"
+                      disabled={bekliyor}
+                      onClick={() => {
+                        if (!confirm(`${k.ad || k.eposta} kaldırılsın mı? Bu kişi artık sisteme giremez. Girdiği ihaleler ve fiyatlar silinmez.`)) return;
+                        basla(async () => {
+                          const s = await kullaniciSil(k.id);
+                          setSonuc({ id: k.id, s });
+                          if (!s.hata) router.refresh();
+                        });
+                      }}
+                    >
+                      Kaldır
+                    </button>
+                  </div>
+                )}
+                {sifreAcik === k.id && (
+                  <div className="mt-2 flex items-center justify-end gap-2">
+                    <div className="w-72">
+                      <SifreGirdisi id={`s-${k.id}`} deger={yeniSifre} degistir={setYeniSifre} />
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-birincil btn-kucuk"
+                      disabled={bekliyor}
+                      onClick={() =>
+                        basla(async () => {
+                          const s = await kullaniciSifresiBelirle(k.id, yeniSifre);
+                          setSonuc({ id: k.id, s: s.hata ? s : { mesaj: `Yeni şifre kaydedildi: ${yeniSifre} — kişiye siz iletin.` } });
+                          if (!s.hata) setSifreAcik(null);
+                        })
+                      }
+                    >
+                      Kaydet
+                    </button>
+                  </div>
+                )}
+                {sonuc?.id === k.id && (
+                  <div className="mt-1">
+                    <Mesaj s={sonuc.s} />
+                  </div>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -230,7 +232,7 @@ function SifremiDegistir() {
 
 export function KullanicilarBolumu({ kullanicilar, benimId }: { kullanicilar: KullaniciSatiri[] | null; benimId: string }) {
   return (
-    <div className="kart space-y-5 p-6">
+    <div className="kart space-y-5 p-4 sm:p-6">
       {kullanicilar ? (
         <>
           <KullaniciSatirlari kullanicilar={kullanicilar} benimId={benimId} />

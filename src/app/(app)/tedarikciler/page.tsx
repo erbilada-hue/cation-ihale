@@ -52,7 +52,7 @@ export default async function TedarikcilerSayfasi({ searchParams }: { searchPara
 
   return (
     <div className="mx-auto max-w-6xl">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-brand-dark">Tedarikçiler</h1>
           <p className="text-sm text-slate-500">Kumaş, aksesuar, fason ve diğer tedarikçileriniz</p>
@@ -80,17 +80,17 @@ export default async function TedarikcilerSayfasi({ searchParams }: { searchPara
       )}
 
       {tumu.length > 0 && tedarikciler.length === 0 ? (
-        <div className="kart p-10 text-center text-slate-600">{aranan ? "Aramaya uyan tedarikçi yok." : "Bu grupta tedarikçi yok."}</div>
+        <div className="kart p-6 sm:p-10 text-center text-slate-600">{aranan ? "Aramaya uyan tedarikçi yok." : "Bu grupta tedarikçi yok."}</div>
       ) : tedarikciler.length === 0 ? (
-        <div className="kart p-10 text-center">
+        <div className="kart p-6 sm:p-10 text-center">
           <p className="text-slate-600">Henüz tedarikçi yok.</p>
           <Link href="/tedarikciler/yeni" className="btn-birincil mt-4">
             İlk tedarikçiyi ekle
           </Link>
         </div>
       ) : (
-        <div className="kart overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="kart overflow-x-auto">
+          <table className="w-full min-w-[36rem] text-sm">
             <thead className="border-b border-cizgi bg-zemin text-left text-xs text-slate-500">
               <tr>
                 <th className="px-4 py-3 font-medium">Tedarikçi</th>

@@ -203,6 +203,9 @@ Design mockup'ı referans alınır (`Cation Ihale Sistemi.dc.html`).
 - Kart: beyaz, 1px #e9ebef border, 12px radius
 - Para birimi: ₺ sembolü, Türkçe binlik ayracı (1.234,56)
 - Tüm butonlar gerçekten çalışır olmalı, placeholder buton bırakılmaz
+- Telefonda da kullanılır (Erbil, 2026-11-16): menü üstte ☰ düğmesiyle açılır, sayfalar tek sütuna iner, geniş tablolar yana kaydırılır
+
+**Görseller:** Erbil'in isteğiyle (2026-11-16) her ihaleye ve her ürüne resim eklenebilir (model, numune, logo/baskı yeri). Telefonda "Fotoğraf çek" kamerayı açar; büyük fotoğraflar yüklenmeden önce 2000 piksele küçültülür. Resimler gizli "sartnameler" deposunun "gorseller/" klasöründe, kayıtları `ihale_gorselleri` tablosunda durur.
 
 ---
 

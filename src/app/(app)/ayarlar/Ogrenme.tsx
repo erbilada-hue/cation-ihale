@@ -34,7 +34,7 @@ export function OgrenmeBolumu({ ozet }: { ozet: OgrenmeOzeti }) {
   const bekleyen = ozet.oneriler.filter((o) => !islenen.has(o.id));
 
   return (
-    <div className="kart space-y-4 p-6 text-sm">
+    <div className="kart space-y-4 p-4 sm:p-6 text-sm">
       {ozet.ihaleSayisi === 0 ? (
         <p className="text-slate-600">
           Henüz örnek alınacak ihale yok. Bir ihalede müşteri teklifi oluşturduğunuzda ya da ihaleyi &quot;Olumlu&quot; işaretlediğinizde
@@ -75,38 +75,40 @@ export function OgrenmeBolumu({ ozet }: { ozet: OgrenmeOzeti }) {
             Bu kalemlerde tekliflerinizde girdiğiniz miktarlar kütüphanedeki varsayılandan farklı. &quot;Kütüphaneye işle&quot; derseniz
             yeni ürünlerde varsayılan olarak bu miktar gelir.
           </p>
-          <table className="w-full">
-            <thead className="text-left text-xs text-slate-500">
-              <tr>
-                <th className="pb-2 font-medium">Kalem</th>
-                <th className="pb-2 text-right font-medium">Kütüphanede</th>
-                <th className="pb-2 text-right font-medium">Tekliflerinizde</th>
-                <th className="pb-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {bekleyen.map((o) => (
-                <tr key={o.id} className="border-t border-cizgi">
-                  <td className="py-2 pr-2">
-                    {o.ad}
-                    <span className="text-xs text-slate-500"> · {urunGrubuAdi(o.urunGrubu)}</span>
-                  </td>
-                  <td className="rakam py-2 pr-2 text-right text-slate-500">
-                    {o.varsayilan != null ? `${sayiYaz(o.varsayilan)} ${o.birim}` : "boş"}
-                  </td>
-                  <td className="rakam py-2 pr-2 text-right">
-                    {sayiYaz(o.ortanca)} {o.birim}
-                    <div className="text-xs text-slate-500">{o.ornekSayisi} üründe</div>
-                  </td>
-                  <td className="py-2 text-right">
-                    <button type="button" className="btn-ikincil btn-kucuk" disabled={calisan === o.id} onClick={() => isle(o.id, o.ortanca)}>
-                      Kütüphaneye işle
-                    </button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[36rem]">
+              <thead className="text-left text-xs text-slate-500">
+                <tr>
+                  <th className="pb-2 font-medium">Kalem</th>
+                  <th className="pb-2 text-right font-medium">Kütüphanede</th>
+                  <th className="pb-2 text-right font-medium">Tekliflerinizde</th>
+                  <th className="pb-2" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {bekleyen.map((o) => (
+                  <tr key={o.id} className="border-t border-cizgi">
+                    <td className="py-2 pr-2">
+                      {o.ad}
+                      <span className="text-xs text-slate-500"> · {urunGrubuAdi(o.urunGrubu)}</span>
+                    </td>
+                    <td className="rakam py-2 pr-2 text-right text-slate-500">
+                      {o.varsayilan != null ? `${sayiYaz(o.varsayilan)} ${o.birim}` : "boş"}
+                    </td>
+                    <td className="rakam py-2 pr-2 text-right">
+                      {sayiYaz(o.ortanca)} {o.birim}
+                      <div className="text-xs text-slate-500">{o.ornekSayisi} üründe</div>
+                    </td>
+                    <td className="py-2 text-right">
+                      <button type="button" className="btn-ikincil btn-kucuk" disabled={calisan === o.id} onClick={() => isle(o.id, o.ortanca)}>
+                        Kütüphaneye işle
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           {hata && <p className="mt-2 text-red-600">{hata}</p>}
         </div>
       )}

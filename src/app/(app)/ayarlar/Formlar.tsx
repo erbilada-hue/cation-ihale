@@ -25,7 +25,7 @@ function Durum({ durum }: { durum: FormDurumu }) {
 
 function Alan({ ad, etiket, deger, genis }: { ad: string; etiket: string; deger: string; genis?: boolean }) {
   return (
-    <div className={genis ? "col-span-2" : ""}>
+    <div className={genis ? "sm:col-span-2" : ""}>
       <label className="etiket" htmlFor={ad}>{etiket}</label>
       <input id={ad} name={ad} defaultValue={deger} className="girdi" />
     </div>
@@ -48,7 +48,7 @@ export function FirmaFormu({ firma }: { firma: FirmaAyarlari }) {
   }
 
   return (
-    <form action={eylem} className="kart grid grid-cols-2 gap-4 p-6">
+    <form action={eylem} className="kart grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-6">
       <Alan ad="firma_adi" etiket="Firma adı" deger={firma.firma_adi} genis />
       <Alan ad="adres" etiket="Adres" deger={firma.adres} genis />
       <Alan ad="telefon" etiket="Telefon" deger={firma.telefon} />
@@ -71,7 +71,7 @@ export function FirmaFormu({ firma }: { firma: FirmaAyarlari }) {
         <label className="etiket" htmlFor="varsayilan_kdv_orani">Yeni ürünlerde KDV oranı (%)</label>
         <input id="varsayilan_kdv_orani" name="varsayilan_kdv_orani" inputMode="decimal" defaultValue={sayiYaz(firma.varsayilan_kdv_orani)} className="girdi-sayi" />
       </div>
-      <div className="col-span-2">
+      <div className="sm:col-span-2">
         <div className="etiket">Logo</div>
         <input type="hidden" name="logo_data_url" value={logo} />
         <div className="flex items-center gap-4">
@@ -93,7 +93,7 @@ export function FirmaFormu({ firma }: { firma: FirmaAyarlari }) {
         </div>
         {logoHatasi && <p className="mt-1 text-sm text-red-600">{logoHatasi}</p>}
       </div>
-      <div className="col-span-2 flex items-center gap-4">
+      <div className="sm:col-span-2 flex items-center gap-4">
         <KaydetButonu />
         <Durum durum={durum} />
       </div>
@@ -111,33 +111,35 @@ export function SegmentFormu({ segmentler }: { segmentler: SegmentSablonu[] }) {
   ] as const;
 
   return (
-    <form action={eylem} className="kart p-6">
-      <table className="w-full text-sm">
-        <thead className="text-left text-xs text-slate-500">
-          <tr>
-            <th className="pb-2 font-medium">Segment</th>
-            {alanlar.map((a) => (
-              <th key={a.ad} className="pb-2 pr-2 font-medium">{a.etiket}</th>
-            ))}
-            <th className="w-24 pb-2 font-medium">Fire (%)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {segmentler.map((s) => (
-            <tr key={s.segment} className="border-t border-cizgi">
-              <td className="py-2 pr-2 font-medium text-brand-dark">{s.ad}</td>
+    <form action={eylem} className="kart p-4 sm:p-6">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[36rem] text-sm">
+          <thead className="text-left text-xs text-slate-500">
+            <tr>
+              <th className="pb-2 font-medium">Segment</th>
               {alanlar.map((a) => (
-                <td key={a.ad} className="py-2 pr-2">
-                  <input aria-label={`${s.ad} ${a.etiket}`} name={`${s.segment}.${a.ad}`} defaultValue={s[a.ad]} className="girdi py-1.5" />
-                </td>
+                <th key={a.ad} className="pb-2 pr-2 font-medium">{a.etiket}</th>
               ))}
-              <td className="py-2">
-                <input aria-label={`${s.ad} fire`} name={`${s.segment}.fire_orani`} inputMode="decimal" defaultValue={sayiYaz(s.fire_orani)} className="girdi-sayi py-1.5" />
-              </td>
+              <th className="w-24 pb-2 font-medium">Fire (%)</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {segmentler.map((s) => (
+              <tr key={s.segment} className="border-t border-cizgi">
+                <td className="py-2 pr-2 font-medium text-brand-dark">{s.ad}</td>
+                {alanlar.map((a) => (
+                  <td key={a.ad} className="py-2 pr-2">
+                    <input aria-label={`${s.ad} ${a.etiket}`} name={`${s.segment}.${a.ad}`} defaultValue={s[a.ad]} className="girdi py-1.5" />
+                  </td>
+                ))}
+                <td className="py-2">
+                  <input aria-label={`${s.ad} fire`} name={`${s.segment}.fire_orani`} inputMode="decimal" defaultValue={sayiYaz(s.fire_orani)} className="girdi-sayi py-1.5" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       <div className="mt-4 flex items-center gap-4">
         <KaydetButonu />
         <Durum durum={durum} />

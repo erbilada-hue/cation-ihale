@@ -256,7 +256,7 @@ export function SartnameAnalizi({ ihaleId, dosya, sablonlar, segmentler, oncekiS
                     </div>
                     {r.secili && (
                       <div className="mt-3 overflow-x-auto">
-                        <table className="w-full text-xs">
+                        <table className="w-full min-w-[36rem] text-xs">
                           <thead className="text-left text-slate-500">
                             <tr>
                               <th className="w-6 py-1" />

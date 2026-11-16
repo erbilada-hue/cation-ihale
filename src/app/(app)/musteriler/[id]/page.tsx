@@ -50,7 +50,7 @@ export default async function MusteriSayfasi({ params }: { params: { id: string 
       </div>
 
       <section>
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-semibold text-brand-dark">İhaleler ({ihaleler.length})</h2>
           <Link href={`/ihaleler/yeni?musteri=${musteri.id}`} className="btn-birincil">
             + Bu müşteri için yeni ihale
@@ -61,38 +61,40 @@ export default async function MusteriSayfasi({ params }: { params: { id: string 
         ) : (
           <div className="space-y-4">
             {sirali.map(([marka, liste]) => (
-              <div key={marka} className="kart overflow-hidden">
+              <div key={marka} className="kart overflow-x-auto">
                 {markali && (
                   <div className="border-b border-cizgi bg-zemin px-4 py-2 text-sm font-semibold text-brand-dark">
                     {marka || "Markasız"} <span className="font-normal text-slate-500">· {liste.length} ihale</span>
                   </div>
                 )}
-                <table className="w-full table-fixed text-sm">
-                  <thead className="border-b border-cizgi text-left text-xs text-slate-500">
-                    <tr>
-                      <th className="w-1/2 px-4 py-2 font-medium">İhale</th>
-                      <th className="px-4 py-2 font-medium">Son teklif tarihi</th>
-                      <th className="w-24 px-4 py-2 text-right font-medium">Ürün</th>
-                      <th className="w-36 px-4 py-2 font-medium">Aşama</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-cizgi">
-                    {liste.map((i) => (
-                      <tr key={i.id} className="hover:bg-zemin/60">
-                        <td className="px-4 py-3">
-                          <Link href={`/ihaleler/${i.id}`} className="font-medium text-brand-dark hover:text-brand">
-                            {i.ad}
-                          </Link>
-                        </td>
-                        <td className="rakam px-4 py-3 text-slate-600">{tarihYaz(i.son_teklif_tarihi)}</td>
-                        <td className="rakam px-4 py-3 text-right">{i.ihale_urunleri?.[0]?.count ?? 0}</td>
-                        <td className="px-4 py-3">
-                          <span className="rozet bg-brand-soft text-brand">{asamaAdi(i.asama)}</span>
-                        </td>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[36rem] table-fixed text-sm">
+                    <thead className="border-b border-cizgi text-left text-xs text-slate-500">
+                      <tr>
+                        <th className="w-1/2 px-4 py-2 font-medium">İhale</th>
+                        <th className="px-4 py-2 font-medium">Son teklif tarihi</th>
+                        <th className="w-24 px-4 py-2 text-right font-medium">Ürün</th>
+                        <th className="w-36 px-4 py-2 font-medium">Aşama</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-cizgi">
+                      {liste.map((i) => (
+                        <tr key={i.id} className="hover:bg-zemin/60">
+                          <td className="px-4 py-3">
+                            <Link href={`/ihaleler/${i.id}`} className="font-medium text-brand-dark hover:text-brand">
+                              {i.ad}
+                            </Link>
+                          </td>
+                          <td className="rakam px-4 py-3 text-slate-600">{tarihYaz(i.son_teklif_tarihi)}</td>
+                          <td className="rakam px-4 py-3 text-right">{i.ihale_urunleri?.[0]?.count ?? 0}</td>
+                          <td className="px-4 py-3">
+                            <span className="rozet bg-brand-soft text-brand">{asamaAdi(i.asama)}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             ))}
           </div>

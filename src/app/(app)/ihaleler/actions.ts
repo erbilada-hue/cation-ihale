@@ -17,8 +17,8 @@ import {
 import { EksikBilgiHatasi, teklifOlustur } from "@/lib/maliyet";
 import { BIRIMLER, HAZIR_URUN, PARA_BIRIMLERI, SEGMENTLER, TESLIM_SEKILLERI, URUN_GRUPLARI } from "@/lib/sabitler";
 import { TCMB_ADRESI, tcmbXmlOku, type TcmbKurlari } from "@/lib/tcmb";
-import type { IhaleDosyasi, KalemSablonu, UrunKalemi, UrunKalemli } from "@/lib/tipler";
-import { SARTNAME_KLASORU } from "@/lib/dosya";
+import type { IhaleDosyasi, IhaleGorseli, KalemSablonu, UrunKalemi, UrunKalemli } from "@/lib/tipler";
+import { GORSEL_ON_EKI, SARTNAME_KLASORU } from "@/lib/dosya";
 import { yuvarlanmisFiyat } from "@/lib/maliyetGirdisi";
 import { tarihMetni } from "@/lib/format";
 import { belgeyiHazirlaAsync } from "@/lib/belgeMetni";
@@ -148,6 +148,11 @@ export async function ihaleSil(id: string): Promise<Sonuc> {
   const { data: dosyalar } = await supabase.from("ihale_dosyalari").select("yol").eq("ihale_id", id);
   if (dosyalar && dosyalar.length > 0) {
     await supabase.storage.from(SARTNAME_KLASORU).remove(dosyalar.map((d) => d.yol as string));
+  }
+  // Görseller de (tablo henüz kurulmadıysa hata verir, önemsenmez)
+  const { data: gorseller } = await supabase.from("ihale_gorselleri").select("yol").eq("ihale_id", id);
+  if (gorseller && gorseller.length > 0) {
+    await supabase.storage.from(SARTNAME_KLASORU).remove(gorseller.map((d) => d.yol as string));
   }
   const { error } = await supabase.from("ihaleler").delete().eq("id", id);
   if (error) return { hata: "İhale silinemedi: " + error.message };
@@ -652,6 +657,68 @@ export async function dosyaSil(dosyaId: string): Promise<Sonuc> {
   const { error } = await supabase.from("ihale_dosyalari").delete().eq("id", dosyaId);
   if (error) return { hata: "Dosya silinemedi: " + error.message };
   revalidatePath(`/ihaleler/${dosya.ihale_id}`);
+  return { veri: null };
+}
+
+// ---------------------------------------------------------------------------
+// Görseller (resmin kendisini tarayıcı doğrudan depoya yükler, burada kaydı tutulur)
+// ---------------------------------------------------------------------------
+
+const GORSEL_TABLOSU_YOK =
+  "Görsel tablosu henüz kurulmamış. Supabase'de görseller SQL'inin çalıştırılması gerekiyor.";
+
+export async function gorselKaydet(girdi: {
+  ihaleId: string;
+  urunId: string | null;
+  ad: string;
+  yol: string;
+  boyut: number;
+  tur: string;
+}): Promise<Sonuc<IhaleGorseli>> {
+  if (!girdi.yol.startsWith(`${GORSEL_ON_EKI}/${girdi.ihaleId}/`)) return { hata: "Dosya yolu geçersiz." };
+  if (!girdi.tur.startsWith("image/")) return { hata: "Sadece resim dosyası eklenebilir." };
+  const supabase = sunucuIstemcisi();
+  const { data, error } = await supabase
+    .from("ihale_gorselleri")
+    .insert({
+      ihale_id: girdi.ihaleId,
+      urun_id: girdi.urunId,
+      ad: girdi.ad,
+      yol: girdi.yol,
+      boyut: girdi.boyut,
+      tur: girdi.tur,
+    })
+    .select("*")
+    .single();
+  if (error) {
+    await supabase.storage.from(SARTNAME_KLASORU).remove([girdi.yol]);
+    return { hata: error.code === "42P01" || error.code === "PGRST205" ? GORSEL_TABLOSU_YOK : "Görsel kaydedilemedi: " + error.message };
+  }
+  const { data: imza } = await supabase.storage.from(SARTNAME_KLASORU).createSignedUrl(girdi.yol, 3600);
+  revalidatePath(`/ihaleler/${girdi.ihaleId}`);
+  return { veri: { ...(data as IhaleGorseli), boyut: Number(data.boyut), url: imza?.signedUrl ?? null } };
+}
+
+export async function gorselAciklamaKaydet(gorselId: string, aciklama: string): Promise<Sonuc> {
+  const supabase = sunucuIstemcisi();
+  const { error } = await supabase
+    .from("ihale_gorselleri")
+    .update({ aciklama: aciklama.trim().slice(0, 300) })
+    .eq("id", gorselId);
+  if (error) return { hata: "Açıklama kaydedilemedi: " + error.message };
+  return { veri: null };
+}
+
+export async function gorselSil(gorselId: string): Promise<Sonuc> {
+  const supabase = sunucuIstemcisi();
+  const { data } = await supabase.from("ihale_gorselleri").select("*").eq("id", gorselId).maybeSingle();
+  const gorsel = data as IhaleGorseli | null;
+  if (!gorsel) return { hata: "Görsel bulunamadı." };
+  const { error: depoHatasi } = await supabase.storage.from(SARTNAME_KLASORU).remove([gorsel.yol]);
+  if (depoHatasi) return { hata: "Görsel silinemedi: " + depoHatasi.message };
+  const { error } = await supabase.from("ihale_gorselleri").delete().eq("id", gorselId);
+  if (error) return { hata: "Görsel silinemedi: " + error.message };
+  revalidatePath(`/ihaleler/${gorsel.ihale_id}`);
   return { veri: null };
 }
 
