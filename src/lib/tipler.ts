@@ -128,6 +128,20 @@ export type Teklif = {
   created_at: string;
 };
 
+export type IhaleGorseli = {
+  id: string;
+  ihale_id: string;
+  urun_id: string | null;
+  ad: string;
+  aciklama: string;
+  yol: string;
+  boyut: number;
+  tur: string;
+  created_at: string;
+  /** Kısa süreli gizli bağlantı (sayfa açılırken üretilir) */
+  url: string | null;
+};
+
 export type IhaleDosyasi = {
   id: string;
   ihale_id: string;

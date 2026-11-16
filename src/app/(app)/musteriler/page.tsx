@@ -36,7 +36,7 @@ export default async function MusterilerSayfasi({ searchParams }: { searchParams
 
   return (
     <div className="mx-auto max-w-6xl">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-brand-dark">Müşteriler</h1>
           <p className="text-sm text-slate-500">Müşterileriniz, markaları ve ihaleleri</p>
@@ -47,7 +47,7 @@ export default async function MusterilerSayfasi({ searchParams }: { searchParams
       </div>
 
       {tumu.length === 0 ? (
-        <div className="kart p-10 text-center">
+        <div className="kart p-6 sm:p-10 text-center">
           <p className="text-slate-600">Henüz müşteri yok.</p>
           <Link href="/musteriler/yeni" className="btn-birincil mt-4">
             İlk müşteriyi ekle
@@ -59,10 +59,10 @@ export default async function MusterilerSayfasi({ searchParams }: { searchParams
             <AramaKutusu etiket="Müşteri ara" ipucu="Müşteri, marka, yetkili veya telefon ara…" />
           </div>
           {musteriler.length === 0 ? (
-            <div className="kart p-10 text-center text-slate-600">Aramaya uyan müşteri yok.</div>
+            <div className="kart p-6 sm:p-10 text-center text-slate-600">Aramaya uyan müşteri yok.</div>
           ) : (
-            <div className="kart overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="kart overflow-x-auto">
+              <table className="w-full min-w-[36rem] text-sm">
                 <thead className="border-b border-cizgi bg-zemin text-left text-xs text-slate-500">
                   <tr>
                     <th className="px-4 py-3 font-medium">Müşteri</th>

@@ -9,11 +9,12 @@ import { BIRIMLER, HAZIR_URUN, PARA_BIRIMLERI, URUN_GRUPLARI, teslimKalemleri, u
 import { useKayit } from "@/lib/useKayit";
 import { SayiGirdisi } from "@/components/SayiGirdisi";
 import { SartnameDosyalari } from "@/components/SartnameDosyalari";
+import { Gorseller } from "@/components/Gorseller";
 import { SartnameAnalizi } from "@/components/SartnameAnalizi";
 import type { MarjOnerisi } from "@/lib/marjTavsiyesi";
 import { eskiMi, gunFarki, kalemAnahtari, kalemleEslesir, otomatikFiyat } from "@/lib/tedarikci";
 import { fiyatYaz } from "@/lib/format";
-import type { IhaleDosyasi, KalemSablonu, SegmentSablonu, TedarikciFiyatiAdli, Teklif, UrunKalemi, UrunKalemli } from "@/lib/tipler";
+import type { IhaleDosyasi, IhaleGorseli, KalemSablonu, SegmentSablonu, TedarikciFiyatiAdli, Teklif, UrunKalemi, UrunKalemli } from "@/lib/tipler";
 import {
   ihaleKurGuncelle,
   kalemEkle,
@@ -37,6 +38,7 @@ type Props = {
   sablonlar: KalemSablonu[];
   teklifler: Teklif[];
   dosyalar: IhaleDosyasi[];
+  gorseller: IhaleGorseli[];
   /** Tedarikçi fiyat listesi; kalemlere fiyat seçmek için */
   fiyatListesi: TedarikciFiyatiAdli[];
   segmentler: SegmentSablonu[];
@@ -77,6 +79,7 @@ export function MaliyetEditoru({
   sablonlar,
   teklifler,
   dosyalar,
+  gorseller,
   fiyatListesi,
   segmentler,
   ihaleSegmenti,
@@ -296,7 +299,7 @@ export function MaliyetEditoru({
         {kayit.durum === "hata" && <span className="text-red-600">{kayit.hata}</span>}
       </div>
 
-      <section className="kart flex flex-wrap items-center gap-x-6 gap-y-3 px-6 py-4">
+      <section className="kart flex flex-wrap items-center gap-x-6 gap-y-3 px-4 py-4 sm:px-6">
         <div className="mr-auto">
           <h2 className="font-semibold text-brand-dark">Döviz kurları</h2>
           <p className="text-xs text-slate-500">
@@ -331,7 +334,7 @@ export function MaliyetEditoru({
         </button>
       </section>
 
-      <section className="kart px-6 py-4">
+      <section className="kart px-4 py-4 sm:px-6">
         <h2 className="font-semibold text-brand-dark">Teknik şartname ve dosyalar</h2>
         <p className="mb-3 text-sm text-slate-500">
           Müşterinin dosyasını yükleyip &quot;Yapay zekâ ile analiz et&quot;e basın; ürünler, adetler ve kalemler çıkarılır, siz
@@ -369,6 +372,15 @@ export function MaliyetEditoru({
         {analizMesaji && <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{analizMesaji}</p>}
       </section>
 
+      <section className="kart px-4 py-4 sm:px-6">
+        <h2 className="font-semibold text-brand-dark">Görseller</h2>
+        <p className="mb-3 text-sm text-slate-500">
+          Müşterinin gönderdiği model resimleri, numune fotoğrafları, logo ve baskı yerleri. Ürüne ait resimleri ürün kartından
+          ekleyin.
+        </p>
+        <Gorseller ihaleId={ihaleId} urunId={null} ilkGorseller={gorseller.filter((g) => !g.urun_id)} />
+      </section>
+
       {sonuclar.map(({ urun, sonuc }) => (
         <UrunKarti
           key={urun.id}
@@ -377,6 +389,7 @@ export function MaliyetEditoru({
           sablonlar={sablonlar.filter((s) => s.urun_grubu === urun.urun_grubu)}
           kurlar={kurlar}
           dosyalar={dosyalar.filter((d) => d.urun_id === urun.id)}
+          gorseller={gorseller.filter((g) => g.urun_id === urun.id)}
           fiyatListesi={fiyatListesi}
           onUrun={(d) => urunDegistir(urun.id, d)}
           onKalem={(kalemId, d) => kalemDegistir(urun.id, kalemId, d)}
@@ -418,9 +431,9 @@ export function MaliyetEditoru({
       )}
 
       {urunler.length > 0 && (
-        <section className="kart p-6">
+        <section className="kart p-4 sm:p-6">
           <h2 className="mb-4 font-semibold text-brand-dark">İhale toplamı</h2>
-          <div className="grid grid-cols-5 gap-4 text-sm">
+          <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3 lg:grid-cols-5">
             <Ozet baslik="Toplam maliyet (fire dahil)" deger={paraYaz(genel.maliyet)} />
             <Ozet baslik="Teklif toplamı (KDV hariç)" deger={genel.eksik ? "—" : paraYaz(genel.teklif)} vurgulu />
             <Ozet baslik="KDV" deger={genel.eksik ? "—" : paraYaz(genel.kdv)} />
@@ -466,42 +479,44 @@ export function MaliyetEditoru({
       )}
 
       {teklifler.length > 0 && (
-        <section className="kart p-6">
+        <section className="kart p-4 sm:p-6">
           <h2 className="mb-3 font-semibold text-brand-dark">Verilen teklifler</h2>
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs text-slate-500">
-              <tr>
-                <th className="py-2 font-medium">Teklif no</th>
-                <th className="py-2 font-medium">Tarih</th>
-                <th className="py-2 font-medium">Geçerlilik</th>
-                <th className="py-2 text-right font-medium">Toplam (KDV hariç)</th>
-                <th className="py-2" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-cizgi">
-              {teklifler.map((t) => (
-                <tr key={t.id}>
-                  <td className="rakam py-2">{t.teklif_no}</td>
-                  <td className="rakam py-2">{tarihYaz(t.teklif_tarihi)}</td>
-                  <td className="rakam py-2">{tarihYaz(t.gecerlilik_tarihi)}</td>
-                  <td className="rakam py-2 text-right">{tutarYaz(t.icerik.araToplam, t.icerik.paraBirimi ?? "TRY")}</td>
-                  <td className="py-2 text-right">
-                    <a href={`/api/pdf/teklif/${t.id}`} target="_blank" rel="noopener" className="text-brand hover:underline">
-                      PDF
-                    </a>
-                    <button
-                      type="button"
-                      className="ml-4 text-red-600 hover:underline disabled:opacity-50"
-                      disabled={silinenTeklif === t.id}
-                      onClick={() => teklifiSil(t.id, t.teklif_no)}
-                    >
-                      {silinenTeklif === t.id ? "Siliniyor…" : "Sil"}
-                    </button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[36rem] text-sm">
+              <thead className="text-left text-xs text-slate-500">
+                <tr>
+                  <th className="py-2 font-medium">Teklif no</th>
+                  <th className="py-2 font-medium">Tarih</th>
+                  <th className="py-2 font-medium">Geçerlilik</th>
+                  <th className="py-2 text-right font-medium">Toplam (KDV hariç)</th>
+                  <th className="py-2" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-cizgi">
+                {teklifler.map((t) => (
+                  <tr key={t.id}>
+                    <td className="rakam py-2">{t.teklif_no}</td>
+                    <td className="rakam py-2">{tarihYaz(t.teklif_tarihi)}</td>
+                    <td className="rakam py-2">{tarihYaz(t.gecerlilik_tarihi)}</td>
+                    <td className="rakam py-2 text-right">{tutarYaz(t.icerik.araToplam, t.icerik.paraBirimi ?? "TRY")}</td>
+                    <td className="py-2 text-right">
+                      <a href={`/api/pdf/teklif/${t.id}`} target="_blank" rel="noopener" className="text-brand hover:underline">
+                        PDF
+                      </a>
+                      <button
+                        type="button"
+                        className="ml-4 text-red-600 hover:underline disabled:opacity-50"
+                        disabled={silinenTeklif === t.id}
+                        onClick={() => teklifiSil(t.id, t.teklif_no)}
+                      >
+                        {silinenTeklif === t.id ? "Siliniyor…" : "Sil"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
     </div>
@@ -527,6 +542,7 @@ type UrunKartiProps = {
   sablonlar: KalemSablonu[];
   kurlar: Kurlar;
   dosyalar: IhaleDosyasi[];
+  gorseller: IhaleGorseli[];
   fiyatListesi: TedarikciFiyatiAdli[];
   onUrun: (d: Partial<UrunKalemli>) => void;
   onKalem: (kalemId: string, d: Partial<UrunKalemi>) => void;
@@ -545,6 +561,7 @@ function UrunKarti({
   sablonlar,
   kurlar,
   dosyalar,
+  gorseller,
   fiyatListesi,
   onUrun,
   onKalem,
@@ -589,8 +606,8 @@ function UrunKarti({
 
   return (
     <section className="kart">
-      <header className="flex items-start justify-between gap-4 border-b border-cizgi px-6 py-4">
-        <div className="min-w-0 flex-1">
+      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-cizgi px-4 py-4 sm:px-6">
+        <div className="min-w-[14rem] flex-1">
           <div className="mb-1 text-xs text-slate-500">{urunGrubuAdi(urun.urun_grubu)}</div>
           <input
             aria-label="Ürün adı"
@@ -606,7 +623,7 @@ function UrunKarti({
             className="mt-1 w-full rounded border border-transparent bg-transparent px-1 -ml-1 text-sm text-slate-600 outline-none hover:border-cizgi focus:border-brand"
           />
         </div>
-        <div className="flex items-end gap-3">
+        <div className="flex flex-wrap items-end gap-3">
           <div className="w-32">
             <label className="etiket">Adet</label>
             <SayiGirdisi deger={urun.adet} tamSayi bosOlamaz onDeger={(n) => n != null && n > 0 && onUrun({ adet: n })} ariaLabel="Adet" />
@@ -619,8 +636,8 @@ function UrunKarti({
       </header>
       {kopyaMesaji}
 
-      <div className="grid grid-cols-[minmax(0,1fr)_320px]">
-        <div className="border-r border-cizgi p-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0 border-b border-cizgi p-4 sm:p-6 lg:border-b-0 lg:border-r">
           {urun.urun_grubu === HAZIR_URUN && (
             <p className="mb-4 rounded-lg bg-zemin px-3 py-2 text-xs text-slate-600">
               Hazır ürün: ilk satıra tedarikçiden <strong>1 adet alış fiyatını</strong> girin ya da fiyat listesinden seçin.
@@ -851,9 +868,13 @@ function UrunKarti({
             <div className="mb-2 text-xs font-medium text-slate-500">Bu ürünün teknik şartnamesi</div>
             <SartnameDosyalari ihaleId={urun.ihale_id} urunId={urun.id} ilkDosyalar={dosyalar} kompakt />
           </div>
+          <div className="mt-4 border-t border-cizgi pt-4">
+            <div className="mb-2 text-xs font-medium text-slate-500">Ürün görselleri</div>
+            <Gorseller ihaleId={urun.ihale_id} urunId={urun.id} ilkGorseller={gorseller} kompakt />
+          </div>
         </div>
 
-        <div className="space-y-3 bg-zemin/50 p-6 text-sm">
+        <div className="space-y-3 bg-zemin/50 p-4 text-sm sm:p-6">
           <div className="flex items-baseline justify-between text-xs text-slate-500">
             <span>Birim (1 adet)</span>
             <span>Toplam ({adetYaz(urun.adet)} adet)</span>

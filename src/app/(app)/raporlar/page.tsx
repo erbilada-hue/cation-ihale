@@ -106,51 +106,53 @@ export default async function RaporlarSayfasi({ searchParams }: Sayfa) {
             Bu dönemde olumlu işaretlenmiş ihale yok. İhale sayfasının üstündeki &ldquo;İhale sonucu&rdquo; alanından işaretleyebilirsiniz.
           </p>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="border-b border-cizgi bg-zemin text-left text-xs text-slate-500">
-              <tr>
-                <th className="px-4 py-3 font-medium">Sonuç tarihi</th>
-                <th className="px-4 py-3 font-medium">İhale</th>
-                <th className="px-4 py-3 font-medium">Müşteri</th>
-                <th className="px-4 py-3 text-right font-medium">Adet</th>
-                <th className="px-4 py-3 text-right font-medium">Teklif (KDV hariç)</th>
-                <th className="px-4 py-3 text-right font-medium">KDV dahil</th>
-                <th className="px-4 py-3 text-right font-medium">Net kâr</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-cizgi">
-              {olumlu.map((i) => (
-                <tr key={i.id} className="hover:bg-zemin/60">
-                  <td className="rakam px-4 py-3 text-slate-600">{tarihYaz(i.sonuc_tarihi)}</td>
-                  <td className="px-4 py-3">
-                    <Link href={`/ihaleler/${i.id}`} className="font-medium text-brand-dark hover:text-brand">
-                      {i.ad}
-                    </Link>
-                    {i.toplam.eksik && <span className="ml-1 text-amber-600" title="Bazı ürünlerde fire, kâr marjı veya kur eksik">*</span>}
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">
-                    {i.musteri || "—"}
-                    {i.marka && <span className="text-slate-400"> · {i.marka}</span>}
-                  </td>
-                  <td className="rakam px-4 py-3 text-right">{adetYaz(i.toplam.adet)}</td>
-                  <td className="rakam px-4 py-3 text-right font-medium">{paraYaz(i.toplam.teklif)}</td>
-                  <td className="rakam px-4 py-3 text-right">{paraYaz(i.toplam.kdvDahil)}</td>
-                  <td className="rakam px-4 py-3 text-right">{paraYaz(i.toplam.netKar)}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[36rem] text-sm">
+              <thead className="border-b border-cizgi bg-zemin text-left text-xs text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Sonuç tarihi</th>
+                  <th className="px-4 py-3 font-medium">İhale</th>
+                  <th className="px-4 py-3 font-medium">Müşteri</th>
+                  <th className="px-4 py-3 text-right font-medium">Adet</th>
+                  <th className="px-4 py-3 text-right font-medium">Teklif (KDV hariç)</th>
+                  <th className="px-4 py-3 text-right font-medium">KDV dahil</th>
+                  <th className="px-4 py-3 text-right font-medium">Net kâr</th>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot className="border-t border-cizgi bg-zemin font-semibold">
-              <tr>
-                <td className="px-4 py-3" colSpan={3}>
-                  Toplam
-                </td>
-                <td className="rakam px-4 py-3 text-right">{adetYaz(genel.adet)}</td>
-                <td className="rakam px-4 py-3 text-right">{paraYaz(genel.teklif)}</td>
-                <td className="rakam px-4 py-3 text-right">{paraYaz(genel.kdvDahil)}</td>
-                <td className="rakam px-4 py-3 text-right">{paraYaz(genel.netKar)}</td>
-              </tr>
-            </tfoot>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-cizgi">
+                {olumlu.map((i) => (
+                  <tr key={i.id} className="hover:bg-zemin/60">
+                    <td className="rakam px-4 py-3 text-slate-600">{tarihYaz(i.sonuc_tarihi)}</td>
+                    <td className="px-4 py-3">
+                      <Link href={`/ihaleler/${i.id}`} className="font-medium text-brand-dark hover:text-brand">
+                        {i.ad}
+                      </Link>
+                      {i.toplam.eksik && <span className="ml-1 text-amber-600" title="Bazı ürünlerde fire, kâr marjı veya kur eksik">*</span>}
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {i.musteri || "—"}
+                      {i.marka && <span className="text-slate-400"> · {i.marka}</span>}
+                    </td>
+                    <td className="rakam px-4 py-3 text-right">{adetYaz(i.toplam.adet)}</td>
+                    <td className="rakam px-4 py-3 text-right font-medium">{paraYaz(i.toplam.teklif)}</td>
+                    <td className="rakam px-4 py-3 text-right">{paraYaz(i.toplam.kdvDahil)}</td>
+                    <td className="rakam px-4 py-3 text-right">{paraYaz(i.toplam.netKar)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="border-t border-cizgi bg-zemin font-semibold">
+                <tr>
+                  <td className="px-4 py-3" colSpan={3}>
+                    Toplam
+                  </td>
+                  <td className="rakam px-4 py-3 text-right">{adetYaz(genel.adet)}</td>
+                  <td className="rakam px-4 py-3 text-right">{paraYaz(genel.teklif)}</td>
+                  <td className="rakam px-4 py-3 text-right">{paraYaz(genel.kdvDahil)}</td>
+                  <td className="rakam px-4 py-3 text-right">{paraYaz(genel.netKar)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         )}
         {eksikVar && (
           <p className="border-t border-cizgi px-4 py-2 text-xs text-amber-700">
@@ -160,7 +162,7 @@ export default async function RaporlarSayfasi({ searchParams }: Sayfa) {
       </section>
 
       {olumsuz.length > 0 && (
-        <section className="kart overflow-hidden">
+        <section className="kart overflow-x-auto">
           <h2 className="border-b border-cizgi px-4 py-3 font-semibold text-brand-dark">Olumsuz sonuçlanan ihaleler</h2>
           <ul className="divide-y divide-cizgi text-sm">
             {olumsuz.map((i) => (

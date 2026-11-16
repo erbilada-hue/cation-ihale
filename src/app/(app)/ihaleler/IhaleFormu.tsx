@@ -49,8 +49,8 @@ export function IhaleFormu({
     <form action={eylem} className="space-y-6">
       {ihale && <input type="hidden" name="id" value={ihale.id} />}
 
-      <section className="kart grid grid-cols-2 gap-4 p-6">
-        <div className="col-span-2">
+      <section className="kart grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-6">
+        <div className="sm:col-span-2">
           <label className="etiket" htmlFor="ad">İhale adı *</label>
           <input id="ad" name="ad" required defaultValue={ihale?.ad} className="girdi" placeholder="Örn. Belediye 2026 iş kıyafeti alımı" />
         </div>
@@ -105,13 +105,13 @@ export function IhaleFormu({
           <label className="etiket" htmlFor="termin">Termin</label>
           <input id="termin" name="termin" defaultValue={ihale?.termin} className="girdi" placeholder="Örn. Siparişten itibaren 45 gün" />
         </div>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <label className="etiket" htmlFor="teslim_yeri">Teslim yeri</label>
           <input id="teslim_yeri" name="teslim_yeri" defaultValue={ihale?.teslim_yeri} className="girdi" placeholder="Uzak bir teslim yeriyse ürünlere nakliye payı eklemeyi unutmayın" />
         </div>
       </section>
 
-      <section className="kart space-y-4 p-6">
+      <section className="kart space-y-4 p-4 sm:p-6">
         <div>
           <div className="etiket">Teknik şartname var mı? *</div>
           <div className="flex gap-3">
@@ -150,7 +150,7 @@ export function IhaleFormu({
             <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
               Teknik şartname bulunamadı — kalite segmenti seçin.
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               {segmentler.map((s) => (
                 <label
                   key={s.segment}
@@ -190,7 +190,7 @@ export function IhaleFormu({
         )}
       </section>
 
-      <section className="kart space-y-4 p-6">
+      <section className="kart space-y-4 p-4 sm:p-6">
         <h2 className="font-semibold text-brand-dark">Teklif ve teslim</h2>
         <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-cizgi px-4 py-3 text-sm">
           <input
@@ -207,7 +207,7 @@ export function IhaleFormu({
             </span>
           </span>
         </label>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
             <label className="etiket" htmlFor="teklif_para_birimi">Teklif para birimi</label>
             <select id="teklif_para_birimi" name="teklif_para_birimi" defaultValue={ihale?.teklif_para_birimi ?? "TRY"} className="girdi">
@@ -247,7 +247,7 @@ export function IhaleFormu({
         </p>
       </section>
 
-      <section className="kart p-6">
+      <section className="kart p-4 sm:p-6">
         <label className="etiket" htmlFor="notlar">Notlar</label>
         <textarea id="notlar" name="notlar" rows={3} defaultValue={ihale?.notlar} className="girdi" />
       </section>

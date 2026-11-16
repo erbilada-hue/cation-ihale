@@ -122,7 +122,7 @@ export function FiyatListesi({ ilkFiyatlar, tedarikciler, ilkTalepler, kalemOner
     return (
       <div className="space-y-6">
         {excelBolumu}
-        <div className="kart p-10 text-center">
+        <div className="kart p-6 sm:p-10 text-center">
           <p className="text-slate-600">
             Fiyat girmek için önce tedarikçi ekleyin ya da elinizdeki fiyat listesini Excel&apos;den yükleyin.
           </p>
@@ -143,7 +143,7 @@ export function FiyatListesi({ ilkFiyatlar, tedarikciler, ilkTalepler, kalemOner
     <div className="space-y-6">
       {excelBolumu}
       {talepler.length > 0 && (
-        <section id="cevaplar" className="kart p-6">
+        <section id="cevaplar" className="kart p-4 sm:p-6">
           <h2 className="mb-1 font-semibold text-brand-dark">Bekleyen cevaplar</h2>
           <p className="mb-4 text-sm text-slate-500">
             Tedarikçiden cevap gelince &quot;Cevabı yapıştır&quot; ile WhatsApp mesajını yapıştırın; yapay zekâ fiyatları okur, siz
@@ -297,8 +297,8 @@ export function FiyatListesi({ ilkFiyatlar, tedarikciler, ilkTalepler, kalemOner
           {fiyatlar.length === 0 ? "Henüz fiyat girilmedi. \"+ Fiyat ekle\" ile başlayın." : "Aramaya uyan fiyat yok."}
         </div>
       ) : (
-        <div className="kart overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="kart overflow-x-auto">
+          <table className="w-full min-w-[36rem] text-sm">
             <thead className="border-b border-cizgi bg-zemin text-left text-xs text-slate-500">
               <tr>
                 <th className="w-10 px-4 py-3" />

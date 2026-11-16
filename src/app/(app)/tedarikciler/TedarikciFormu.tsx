@@ -20,9 +20,9 @@ export function TedarikciFormu({ tedarikci }: { tedarikci?: Tedarikci }) {
   const [durum, eylem] = useFormState(tedarikciKaydet, BOS);
   const t = tedarikci;
   return (
-    <form action={eylem} className="kart grid grid-cols-2 gap-4 p-6">
+    <form action={eylem} className="kart grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-6">
       {t && <input type="hidden" name="id" value={t.id} />}
-      <div className="col-span-2">
+      <div className="sm:col-span-2">
         <label className="etiket" htmlFor="ad">Firma adı</label>
         <input id="ad" name="ad" defaultValue={t?.ad} required className="girdi" placeholder="Örn. Akın Örme Kumaş" />
       </div>
@@ -49,11 +49,11 @@ export function TedarikciFormu({ tedarikci }: { tedarikci?: Tedarikci }) {
         <label className="etiket" htmlFor="eposta">E-posta</label>
         <input id="eposta" name="eposta" type="email" defaultValue={t?.eposta} className="girdi" />
       </div>
-      <div className="col-span-2">
+      <div className="sm:col-span-2">
         <label className="etiket" htmlFor="notlar">Notlar</label>
         <textarea id="notlar" name="notlar" defaultValue={t?.notlar} rows={2} className="girdi" />
       </div>
-      <div className="col-span-2 flex items-center gap-4">
+      <div className="sm:col-span-2 flex items-center gap-4">
         <KaydetButonu yeni={!t} />
         {durum.hata && <span className="text-sm text-red-600">{durum.hata}</span>}
         {durum.basari && <span className="text-sm text-green-700">{durum.basari}</span>}

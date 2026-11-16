@@ -97,7 +97,7 @@ export function FiyatExceliYukle({ tedarikciler, onKapat }: { tedarikciler: Teda
   const tarihler = cozum ? cozum.fiyatlar.map((f) => f.fiyat_tarihi).filter((t): t is string => !!t).sort() : [];
 
   return (
-    <section className="kart p-6">
+    <section className="kart p-4 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-2xl">
           <h2 className="font-semibold text-brand-dark">Excel&apos;den fiyat yükle</h2>

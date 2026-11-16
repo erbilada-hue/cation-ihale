@@ -13,7 +13,7 @@ type Grup = { tedarikci: Tedarikci; fiyatlar: TedarikciFiyati[] };
  */
 export function TalepHazirla({ gruplar, firmaAdi, onKapat }: { gruplar: Grup[]; firmaAdi: string; onKapat: () => void }) {
   return (
-    <section className="kart border-brand/40 p-6">
+    <section className="kart border-brand/40 p-4 sm:p-6">
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
           <h2 className="font-semibold text-brand-dark">Fiyat isteme mesajları</h2>

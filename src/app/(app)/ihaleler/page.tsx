@@ -36,7 +36,7 @@ export default async function IhalelerSayfasi({ searchParams }: { searchParams: 
 
   return (
     <div className="mx-auto max-w-6xl">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-brand-dark">İhaleler</h1>
           <p className="text-sm text-slate-500">Tüm ihaleler ve bulundukları aşama</p>
@@ -68,25 +68,25 @@ export default async function IhalelerSayfasi({ searchParams }: { searchParams: 
       )}
 
       {tumu.length === 0 ? (
-        <div className="kart p-10 text-center">
+        <div className="kart p-6 sm:p-10 text-center">
           <p className="text-slate-600">Henüz ihale yok.</p>
           <Link href="/ihaleler/yeni" className="btn-birincil mt-4">
             İlk ihaleyi oluştur
           </Link>
         </div>
       ) : ihaleler.length === 0 ? (
-        <div className="kart p-10 text-center text-slate-500">Bu durumda ihale yok.</div>
+        <div className="kart p-6 sm:p-10 text-center text-slate-500">Bu durumda ihale yok.</div>
       ) : (
-        <div className="kart overflow-hidden">
+        <div className="kart overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b border-cizgi bg-zemin text-left text-xs text-slate-500">
               <tr>
                 <th className="px-4 py-3 font-medium">İhale</th>
-                <th className="px-4 py-3 font-medium">Müşteri</th>
-                <th className="px-4 py-3 font-medium">Son teklif tarihi</th>
-                <th className="px-4 py-3 text-right font-medium">Ürün</th>
+                <th className="hidden px-4 py-3 font-medium sm:table-cell">Müşteri</th>
+                <th className="hidden px-4 py-3 font-medium sm:table-cell">Son teklif tarihi</th>
+                <th className="hidden px-4 py-3 text-right font-medium sm:table-cell">Ürün</th>
                 <th className="px-4 py-3 font-medium">Aşama</th>
-                <th className="px-4 py-3 font-medium">Sonuç</th>
+                <th className="hidden px-4 py-3 font-medium sm:table-cell">Sonuç</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-cizgi">
@@ -96,8 +96,11 @@ export default async function IhalelerSayfasi({ searchParams }: { searchParams: 
                     <Link href={`/ihaleler/${i.id}`} className="font-medium text-brand-dark hover:text-brand">
                       {i.ad}
                     </Link>
+                    <div className="mt-0.5 text-xs text-slate-500 sm:hidden">
+                      {[i.musteri, i.son_teklif_tarihi && `Son teklif ${tarihYaz(i.son_teklif_tarihi)}`].filter(Boolean).join(" · ")}
+                    </div>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="hidden px-4 py-3 text-slate-600 sm:table-cell">
                     {i.musteri_id ? (
                       <Link href={`/musteriler/${i.musteri_id}`} className="hover:text-brand">
                         {i.musteri}
@@ -107,12 +110,21 @@ export default async function IhalelerSayfasi({ searchParams }: { searchParams: 
                     )}
                     {i.marka && <span className="text-slate-400"> · {i.marka}</span>}
                   </td>
-                  <td className="rakam px-4 py-3 text-slate-600">{tarihYaz(i.son_teklif_tarihi)}</td>
-                  <td className="rakam px-4 py-3 text-right">{i.ihale_urunleri?.[0]?.count ?? 0}</td>
+                  <td className="rakam hidden px-4 py-3 text-slate-600 sm:table-cell">{tarihYaz(i.son_teklif_tarihi)}</td>
+                  <td className="rakam hidden px-4 py-3 text-right sm:table-cell">{i.ihale_urunleri?.[0]?.count ?? 0}</td>
                   <td className="px-4 py-3">
                     <span className="rozet bg-brand-soft text-brand">{asamaAdi(i.asama)}</span>
+                    {i.sonuc && (
+                      <div className="mt-1 sm:hidden">
+                        {i.sonuc === "olumlu" ? (
+                          <span className="rozet bg-green-100 text-green-800">✓ Olumlu</span>
+                        ) : (
+                          <span className="rozet bg-red-100 text-red-800">✗ Olumsuz</span>
+                        )}
+                      </div>
+                    )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="hidden px-4 py-3 sm:table-cell">
                     {i.sonuc === "olumlu" ? (
                       <span className="rozet bg-green-100 text-green-800">✓ Olumlu</span>
                     ) : i.sonuc === "olumsuz" ? (

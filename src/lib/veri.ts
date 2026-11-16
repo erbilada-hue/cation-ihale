@@ -6,6 +6,7 @@ import type {
   Teklif,
   FiyatTalebi,
   IhaleDosyasi,
+  IhaleGorseli,
   Musteri,
   Tedarikci,
   TedarikciFiyati,
@@ -15,6 +16,7 @@ import type {
 } from "./tipler";
 export { ihaleKurlari, maliyetGirdisi } from "./maliyetGirdisi";
 import { sunucuIstemcisi } from "./supabase/server";
+import { SARTNAME_KLASORU } from "./dosya";
 
 type Supabase = ReturnType<typeof sunucuIstemcisi>;
 
@@ -114,6 +116,26 @@ export async function dosyalariGetir(supabase: Supabase, ihaleId: string) {
     .eq("ihale_id", ihaleId)
     .order("created_at");
   return ((data ?? []) as IhaleDosyasi[]).map((d) => ({ ...d, boyut: Number(d.boyut) }));
+}
+
+/** İhalenin görselleri, ekranda gösterilmek üzere 1 saatlik gizli bağlantılarıyla */
+export async function gorselleriGetir(supabase: Supabase, ihaleId: string): Promise<IhaleGorseli[]> {
+  const { data, error } = await supabase
+    .from("ihale_gorselleri")
+    .select("*")
+    .eq("ihale_id", ihaleId)
+    .order("created_at");
+  // Tablo henüz kurulmadıysa (SQL çalıştırılmadıysa) sayfa yine açılsın
+  if (error || !data || data.length === 0) return [];
+  const satirlar = data as Omit<IhaleGorseli, "url">[];
+  const { data: imzalar } = await supabase.storage
+    .from(SARTNAME_KLASORU)
+    .createSignedUrls(
+      satirlar.map((g) => g.yol),
+      3600,
+    );
+  const url = new Map((imzalar ?? []).map((i) => [i.path, i.signedUrl]));
+  return satirlar.map((g) => ({ ...g, boyut: Number(g.boyut), url: url.get(g.yol) ?? null }));
 }
 
 export async function musterileriGetir(supabase: Supabase) {

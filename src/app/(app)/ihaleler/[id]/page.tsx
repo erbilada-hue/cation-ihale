@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { sunucuIstemcisi } from "@/lib/supabase/server";
 import {
   dosyalariGetir,
+  gorselleriGetir,
   fiyatListesiniGetir,
   ihaleGetir,
   ihaleKurlari,
@@ -27,12 +28,13 @@ export default async function IhaleDetaySayfasi({ params }: { params: { id: stri
   const ihale = await ihaleGetir(supabase, params.id);
   if (!ihale) notFound();
 
-  const [urunler, sablonlar, segmentler, teklifler, dosyalar, fiyatListesi, digerIhaleler] = await Promise.all([
+  const [urunler, sablonlar, segmentler, teklifler, dosyalar, gorseller, fiyatListesi, digerIhaleler] = await Promise.all([
     urunleriGetir(supabase, ihale.id),
     kalemSablonlariniGetir(supabase),
     segmentleriGetir(supabase),
     teklifleriGetir(supabase, ihale.id),
     dosyalariGetir(supabase, ihale.id),
+    gorselleriGetir(supabase, ihale.id),
     fiyatListesiniGetir(supabase),
     supabase
       .from("ihaleler")
@@ -55,7 +57,7 @@ export default async function IhaleDetaySayfasi({ params }: { params: { id: stri
           ← İhaleler
         </Link>
       </div>
-      <div className="mb-4 flex items-start justify-between gap-4">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-brand-dark">{ihale.ad}</h1>
           <div className="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-600">
@@ -117,6 +119,7 @@ export default async function IhaleDetaySayfasi({ params }: { params: { id: stri
         sablonlar={sablonlar}
         teklifler={teklifler}
         dosyalar={dosyalar}
+        gorseller={gorseller}
         fiyatListesi={fiyatListesi}
         segmentler={segmentler}
         ihaleSegmenti={ihale.kaynak === "segment" ? ihale.segment : null}

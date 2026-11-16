@@ -25,3 +25,20 @@ export function boyutYaz(bayt: number): string {
   if (bayt < 1024 * 1024) return `${Math.round(bayt / 1024)} KB`;
   return `${(bayt / 1024 / 1024).toLocaleString("tr-TR", { maximumFractionDigits: 1 })} MB`;
 }
+
+/** Görsellerin depodaki klasörü: gorseller/<ihale>/<dosya> */
+export const GORSEL_ON_EKI = "gorseller";
+
+/**
+ * Büyük telefon fotoğrafları yüklenmeden önce küçültülür: uzun kenar en fazla bu kadar piksel.
+ * Ekranda ve çıktıda net görünmesine yeter, yükleme hızlı olur.
+ */
+export const GORSEL_UZUN_KENAR = 2000;
+
+/** Uzun kenarı sınırı geçen resmin yeni boyutu (oran korunur); küçükse aynen kalır */
+export function kucukBoyut(genislik: number, yukseklik: number, uzunKenar = GORSEL_UZUN_KENAR): { genislik: number; yukseklik: number } {
+  const buyuk = Math.max(genislik, yukseklik);
+  if (buyuk <= uzunKenar || buyuk === 0) return { genislik, yukseklik };
+  const oran = uzunKenar / buyuk;
+  return { genislik: Math.round(genislik * oran), yukseklik: Math.round(yukseklik * oran) };
+}

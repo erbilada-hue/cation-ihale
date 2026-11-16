@@ -63,73 +63,77 @@ export function KalemKutuphanesi({ sablonlar }: { sablonlar: KalemSablonu[] }) {
               <h3 className="mb-2 text-sm font-semibold text-brand-dark">
                 {baslik} <span className="rakam font-normal text-slate-400">({liste.length})</span>
               </h3>
-              <table className="w-full text-sm">
-                <thead className="text-left text-xs text-slate-500">
-                  <tr>
-                    <th className="pb-2 font-medium">Kalem</th>
-                    <th className="w-24 pb-2 font-medium">Birim</th>
-                    <th className="w-28 pb-2 text-right font-medium">Kullanım</th>
-                    <th className="w-32 pb-2 text-right font-medium">Birim fiyat</th>
-                    <th className="pb-2 pl-4 font-medium">Anahtar kelimeler</th>
-                    <th className="w-36 pb-2" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {liste.map((s) =>
-                    duzenlenen === s.id ? (
-                      <SablonFormu
-                        key={s.id}
-                        sablon={s}
-                        grup={grup}
-                        onBitti={() => {
-                          setDuzenlenen(null);
-                          router.refresh();
-                        }}
-                      />
-                    ) : (
-                      <tr key={s.id} className="border-t border-cizgi">
-                        <td className="py-2">{s.ad}</td>
-                        <td className="py-2 text-slate-600">{s.birim}</td>
-                        <td className="rakam py-2 text-right">{sayiYaz(s.varsayilan_kullanim) || "—"}</td>
-                        <td className="rakam py-2 text-right">
-                          {s.varsayilan_birim_fiyat == null ? "—" : paraYaz(s.varsayilan_birim_fiyat)}
-                        </td>
-                        <td className="py-2 pl-4 text-xs text-slate-500">{s.anahtar_kelimeler.join(", ")}</td>
-                        <td className="py-2 text-right">
-                          <button type="button" className="mr-3 text-brand hover:underline" onClick={() => setDuzenlenen(s.id)}>
-                            Düzenle
-                          </button>
-                          <button type="button" className="text-red-600 hover:underline" onClick={() => sil(s)}>
-                            Sil
-                          </button>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[36rem] text-sm">
+                  <thead className="text-left text-xs text-slate-500">
+                    <tr>
+                      <th className="pb-2 font-medium">Kalem</th>
+                      <th className="w-24 pb-2 font-medium">Birim</th>
+                      <th className="w-28 pb-2 text-right font-medium">Kullanım</th>
+                      <th className="w-32 pb-2 text-right font-medium">Birim fiyat</th>
+                      <th className="pb-2 pl-4 font-medium">Anahtar kelimeler</th>
+                      <th className="w-36 pb-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {liste.map((s) =>
+                      duzenlenen === s.id ? (
+                        <SablonFormu
+                          key={s.id}
+                          sablon={s}
+                          grup={grup}
+                          onBitti={() => {
+                            setDuzenlenen(null);
+                            router.refresh();
+                          }}
+                        />
+                      ) : (
+                        <tr key={s.id} className="border-t border-cizgi">
+                          <td className="py-2">{s.ad}</td>
+                          <td className="py-2 text-slate-600">{s.birim}</td>
+                          <td className="rakam py-2 text-right">{sayiYaz(s.varsayilan_kullanim) || "—"}</td>
+                          <td className="rakam py-2 text-right">
+                            {s.varsayilan_birim_fiyat == null ? "—" : paraYaz(s.varsayilan_birim_fiyat)}
+                          </td>
+                          <td className="py-2 pl-4 text-xs text-slate-500">{s.anahtar_kelimeler.join(", ")}</td>
+                          <td className="py-2 text-right">
+                            <button type="button" className="mr-3 text-brand hover:underline" onClick={() => setDuzenlenen(s.id)}>
+                              Düzenle
+                            </button>
+                            <button type="button" className="text-red-600 hover:underline" onClick={() => sil(s)}>
+                              Sil
+                            </button>
+                          </td>
+                        </tr>
+                      ),
+                    )}
+                    {liste.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="border-t border-cizgi py-3 text-slate-500">
+                          Kalem yok.
                         </td>
                       </tr>
-                    ),
-                  )}
-                  {liste.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="border-t border-cizgi py-3 text-slate-500">
-                        Kalem yok.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ))}
 
           {duzenlenen === "yeni" ? (
-            <table className="w-full text-sm">
-              <tbody>
-                <SablonFormu
-                  grup={grup}
-                  onBitti={() => {
-                    setDuzenlenen(null);
-                    router.refresh();
-                  }}
-                />
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[36rem] text-sm">
+                <tbody>
+                  <SablonFormu
+                    grup={grup}
+                    onBitti={() => {
+                      setDuzenlenen(null);
+                      router.refresh();
+                    }}
+                  />
+                </tbody>
+              </table>
+            </div>
           ) : (
             <button type="button" className="btn-ikincil" onClick={() => setDuzenlenen("yeni")}>
               + {urunGrubuAdi(grup)} için kalem ekle
@@ -275,7 +279,7 @@ function ExcelAktarimi({ toplam }: { toplam: number }) {
     : [];
 
   return (
-    <section className="kart p-6">
+    <section className="kart p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="font-semibold text-brand-dark">Excel&apos;den yükle</h2>
