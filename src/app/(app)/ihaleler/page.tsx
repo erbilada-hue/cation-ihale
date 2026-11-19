@@ -3,6 +3,9 @@ import { sunucuIstemcisi } from "@/lib/supabase/server";
 import { asamaAdi } from "@/lib/sabitler";
 import { tarihYaz } from "@/lib/format";
 import type { Ihale } from "@/lib/tipler";
+import { aramaEslesir } from "@/lib/arama";
+import AramaKutusu from "@/components/AramaKutusu";
+import { MusteriSuzgeci } from "@/components/MusteriSuzgeci";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +17,10 @@ const DURUMLAR = [
   { kod: "olumsuz", ad: "Olumsuz" },
 ] as const;
 
-type Satir = Ihale & { ihale_urunleri: { count: number }[]; teklifler: { count: number }[] };
+type Satir = Ihale & {
+  ihale_urunleri: { ad: string; aciklama: string | null; urun_kalemleri: { ad: string }[] }[];
+  teklifler: { count: number }[];
+};
 
 const aktifMi = (i: Satir) => i.sonuc == null && ["ihale", "maliyet", "teklif"].includes(i.asama);
 const SUZGECLER: Record<string, (i: Satir) => boolean> = {
@@ -24,13 +30,41 @@ const SUZGECLER: Record<string, (i: Satir) => boolean> = {
   olumsuz: (i) => i.sonuc === "olumsuz",
 };
 
-export default async function IhalelerSayfasi({ searchParams }: { searchParams: { durum?: string } }) {
+export default async function IhalelerSayfasi({ searchParams }: { searchParams: { durum?: string; ara?: string; musteri?: string } }) {
   const supabase = sunucuIstemcisi();
   const { data } = await supabase
     .from("ihaleler")
-    .select("*, ihale_urunleri(count), teklifler(count)")
+    .select("*, ihale_urunleri(ad, aciklama, urun_kalemleri(ad)), teklifler(count)")
     .order("created_at", { ascending: false });
-  const tumu = (data ?? []) as Satir[];
+  const hepsi = (data ?? []) as Satir[];
+  // Arama: ihale adı, müşteri, marka, yetkili, teslim yeri, termin, notlar, ürünler ve kalemler
+  const ara = searchParams.ara ?? "";
+  const musteri = searchParams.musteri ?? "";
+  // Müşteri listesi: ihalesi olan müşteriler, alfabetik, ihale sayısıyla
+  const musteriSayilari = new Map<string, number>();
+  for (const i of hepsi) {
+    const ad = (i.musteri ?? "").trim();
+    if (ad) musteriSayilari.set(ad, (musteriSayilari.get(ad) ?? 0) + 1);
+  }
+  const musteriler = Array.from(musteriSayilari, ([ad, sayi]) => ({ ad, sayi })).sort((a, b) => a.ad.localeCompare(b.ad, "tr"));
+  const tumu = hepsi.filter((i) =>
+    (!musteri || (i.musteri ?? "").trim() === musteri) &&
+    aramaEslesir(
+      [
+        i.ad,
+        i.musteri,
+        i.marka,
+        i.yetkili,
+        i.teslim_yeri,
+        i.termin,
+        i.notlar,
+        i.kaynak_dosya,
+        asamaAdi(i.asama),
+        ...(i.ihale_urunleri ?? []).flatMap((u) => [u.ad, u.aciklama, ...(u.urun_kalemleri ?? []).map((k) => k.ad)]),
+      ],
+      ara,
+    ),
+  );
   const durum = searchParams.durum && SUZGECLER[searchParams.durum] ? searchParams.durum : "";
   const ihaleler = durum ? tumu.filter(SUZGECLER[durum]) : tumu;
 
@@ -51,12 +85,24 @@ export default async function IhalelerSayfasi({ searchParams }: { searchParams: 
         </div>
       </div>
 
+      {hepsi.length > 0 && (
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <AramaKutusu etiket="İhale ara" ipucu="İhale, müşteri, marka, ürün, kalem ara…" />
+          {musteriler.length > 0 && <MusteriSuzgeci musteriler={musteriler} />}
+          {(ara || musteri) && (
+            <Link href={`/ihaleler${aramaAdresi(searchParams.durum ?? "", "", "")}`} className="text-sm text-brand hover:underline">
+              Temizle
+            </Link>
+          )}
+        </div>
+      )}
+
       {tumu.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-2">
           {DURUMLAR.map((d) => (
             <Link
               key={d.kod}
-              href={d.kod ? `/ihaleler?durum=${d.kod}` : "/ihaleler"}
+              href={`/ihaleler${aramaAdresi(d.kod, ara, musteri)}`}
               className={`rounded-full border px-3 py-1.5 text-sm ${
                 durum === d.kod ? "border-brand bg-brand text-white" : "border-cizgi bg-white text-slate-600 hover:border-brand hover:text-brand"
               }`}
@@ -67,7 +113,7 @@ export default async function IhalelerSayfasi({ searchParams }: { searchParams: 
         </div>
       )}
 
-      {tumu.length === 0 ? (
+      {hepsi.length === 0 ? (
         <div className="kart p-6 sm:p-10 text-center">
           <p className="text-slate-600">Henüz ihale yok.</p>
           <Link href="/ihaleler/yeni" className="btn-birincil mt-4">
@@ -75,7 +121,9 @@ export default async function IhalelerSayfasi({ searchParams }: { searchParams: 
           </Link>
         </div>
       ) : ihaleler.length === 0 ? (
-        <div className="kart p-6 sm:p-10 text-center text-slate-500">Bu durumda ihale yok.</div>
+        <div className="kart p-6 sm:p-10 text-center text-slate-500">
+          {ara || musteri ? "Aramaya uyan ihale yok." : "Bu durumda ihale yok."}
+        </div>
       ) : (
         <div className="kart overflow-x-auto">
           <table className="w-full text-sm">
@@ -111,7 +159,7 @@ export default async function IhalelerSayfasi({ searchParams }: { searchParams: 
                     {i.marka && <span className="text-slate-400"> · {i.marka}</span>}
                   </td>
                   <td className="rakam hidden px-4 py-3 text-slate-600 sm:table-cell">{tarihYaz(i.son_teklif_tarihi)}</td>
-                  <td className="rakam hidden px-4 py-3 text-right sm:table-cell">{i.ihale_urunleri?.[0]?.count ?? 0}</td>
+                  <td className="rakam hidden px-4 py-3 text-right sm:table-cell">{i.ihale_urunleri?.length ?? 0}</td>
                   <td className="px-4 py-3">
                     <span className="rozet bg-brand-soft text-brand">{asamaAdi(i.asama)}</span>
                     {i.sonuc && (
@@ -141,4 +189,13 @@ export default async function IhalelerSayfasi({ searchParams }: { searchParams: 
       )}
     </div>
   );
+}
+
+/** Durum sekmesine geçerken yazılan arama korunur */
+function aramaAdresi(durum: string, ara: string, musteri: string): string {
+  const p = new URLSearchParams();
+  if (durum) p.set("durum", durum);
+  if (ara) p.set("ara", ara);
+  if (musteri) p.set("musteri", musteri);
+  return p.toString() ? `?${p}` : "";
 }
