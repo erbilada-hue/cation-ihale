@@ -5,6 +5,7 @@ import { tarihYaz } from "@/lib/format";
 import type { Ihale } from "@/lib/tipler";
 import { aramaEslesir } from "@/lib/arama";
 import AramaKutusu from "@/components/AramaKutusu";
+import { MusteriSuzgeci } from "@/components/MusteriSuzgeci";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ const SUZGECLER: Record<string, (i: Satir) => boolean> = {
   olumsuz: (i) => i.sonuc === "olumsuz",
 };
 
-export default async function IhalelerSayfasi({ searchParams }: { searchParams: { durum?: string; ara?: string } }) {
+export default async function IhalelerSayfasi({ searchParams }: { searchParams: { durum?: string; ara?: string; musteri?: string } }) {
   const supabase = sunucuIstemcisi();
   const { data } = await supabase
     .from("ihaleler")
@@ -38,7 +39,16 @@ export default async function IhalelerSayfasi({ searchParams }: { searchParams: 
   const hepsi = (data ?? []) as Satir[];
   // Arama: ihale adı, müşteri, marka, yetkili, teslim yeri, termin, notlar, ürünler ve kalemler
   const ara = searchParams.ara ?? "";
+  const musteri = searchParams.musteri ?? "";
+  // Müşteri listesi: ihalesi olan müşteriler, alfabetik, ihale sayısıyla
+  const musteriSayilari = new Map<string, number>();
+  for (const i of hepsi) {
+    const ad = (i.musteri ?? "").trim();
+    if (ad) musteriSayilari.set(ad, (musteriSayilari.get(ad) ?? 0) + 1);
+  }
+  const musteriler = Array.from(musteriSayilari, ([ad, sayi]) => ({ ad, sayi })).sort((a, b) => a.ad.localeCompare(b.ad, "tr"));
   const tumu = hepsi.filter((i) =>
+    (!musteri || (i.musteri ?? "").trim() === musteri) &&
     aramaEslesir(
       [
         i.ad,
@@ -76,8 +86,14 @@ export default async function IhalelerSayfasi({ searchParams }: { searchParams: 
       </div>
 
       {hepsi.length > 0 && (
-        <div className="mb-3">
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
           <AramaKutusu etiket="İhale ara" ipucu="İhale, müşteri, marka, ürün, kalem ara…" />
+          {musteriler.length > 0 && <MusteriSuzgeci musteriler={musteriler} />}
+          {(ara || musteri) && (
+            <Link href={`/ihaleler${aramaAdresi(searchParams.durum ?? "", "", "")}`} className="text-sm text-brand hover:underline">
+              Temizle
+            </Link>
+          )}
         </div>
       )}
 
@@ -86,7 +102,7 @@ export default async function IhalelerSayfasi({ searchParams }: { searchParams: 
           {DURUMLAR.map((d) => (
             <Link
               key={d.kod}
-              href={`/ihaleler${aramaAdresi(d.kod, ara)}`}
+              href={`/ihaleler${aramaAdresi(d.kod, ara, musteri)}`}
               className={`rounded-full border px-3 py-1.5 text-sm ${
                 durum === d.kod ? "border-brand bg-brand text-white" : "border-cizgi bg-white text-slate-600 hover:border-brand hover:text-brand"
               }`}
@@ -106,7 +122,7 @@ export default async function IhalelerSayfasi({ searchParams }: { searchParams: 
         </div>
       ) : ihaleler.length === 0 ? (
         <div className="kart p-6 sm:p-10 text-center text-slate-500">
-          {ara ? `"${ara}" aramasına uyan ihale yok.` : "Bu durumda ihale yok."}
+          {ara || musteri ? "Aramaya uyan ihale yok." : "Bu durumda ihale yok."}
         </div>
       ) : (
         <div className="kart overflow-x-auto">
@@ -176,9 +192,10 @@ export default async function IhalelerSayfasi({ searchParams }: { searchParams: 
 }
 
 /** Durum sekmesine geçerken yazılan arama korunur */
-function aramaAdresi(durum: string, ara: string): string {
+function aramaAdresi(durum: string, ara: string, musteri: string): string {
   const p = new URLSearchParams();
   if (durum) p.set("durum", durum);
   if (ara) p.set("ara", ara);
+  if (musteri) p.set("musteri", musteri);
   return p.toString() ? `?${p}` : "";
 }
